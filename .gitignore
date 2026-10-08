@@ -5,3 +5,6 @@
 *.pem
 *.key
 .local/
+__pycache__/
+*.pyc
+dist/

@@ -1,31 +1,127 @@
-# workflow_harness
+# 인간이 병목이다
+## Human Bottleneck — Workflow Harness
 
-어떤 환경에서도 같은 개인 작업 규칙으로 에이전트와 협업하기 위한 원본 저장소.
+**AI가 계획하고 만들고 검토한다. 사람은 방향을 정하고, 계획을 다듬고, 진행을 승인한다.**
 
-## 목적
+Human Bottleneck은 사람의 검토와 승인을 중심에 둔 개인용 에이전트 작업 하네스입니다. Codex와 Claude Code에 공통 작업 규칙, 독립 검토자, 프로젝트별 계획·메모리 구조를 연결합니다.
 
-사용자가 앞으로 수행할 작업에서 우선 참고할 개인 공통 규칙을 관리한다. 사용자의 실제 작업 방식을 대화로 수집하고, 개선 아이디어를 검토해 합의된 내용을 규칙으로 발전시킨다.
+새 세션에서도 같은 규칙과 기록으로 작업을 이어가고 싶은 사람, 코드 작성 전에 계획을 보고 수정하는 사람을 위한 프로젝트입니다.
 
-장기적으로 개인 GitHub 저장소를 설치하거나 내려받아 각 환경에 연결하고, 동일한 버전의 규칙을 사용할 수 있게 한다. 개인 규칙은 시스템·조직의 상위 지침을 대체하지 않으며, 프로젝트별 지침과의 적용 관계를 명확히 한다.
+> 초기 버전: macOS 지원. CLI 구현과 임시 환경 검증을 마쳤으며, 버전 태그로 GitHub Release를 배포합니다. 직접 다운로드 설치 확인은 사용자 환경에서 진행합니다. 프로젝트 표시명은 Human Bottleneck이며 저장소와 명령 이름은 현재 `workflow_harness` / `workflow-harness`를 사용합니다.
 
-## 구성
+## 어떻게 작업하나요?
 
-- `rules/AGENTS.md`: 여러 환경에 배포할 개인 공통 규칙의 정본.
-- `AGENTS.md`: 이 저장소에서 작업하는 에이전트의 진입점과 저장소 운영 규칙.
-- `docs/roadmap.md`: 발전 단계와 아직 결정하지 않은 설계.
-- `docs/github-personal-setup.md`: 회사 계정과 개인 GitHub 계정을 분리하는 절차.
+```text
+요구사항
+  → 계획 작성
+  → 독립 계획 검토
+  → 사용자 검토·보완·진행 승인
+  → 구현과 검사·테스트
+  → 독립 결과 검토·수정
+  → 진행·결정·다음 작업을 메모리에 기록
+```
 
-`agent.md`는 목적을 설명하는 일반 명칭으로 사용하되, 이 저장소의 실제 파일명은 `AGENTS.md`로 통일한다. 도구마다 다른 설치 위치와 파일명은 추후 설치 단계에서 대응한다.
+- **영향에 맞는 계획:** 작은 수정은 T(Task), 흐름·구조 변경은 P(Plan)와 T, 새로운 개념과 방향이 필요하면 S(Spec)부터 작성합니다.
+- **계획 간 정합성:** 상위 문서·버전·선행 작업을 명시합니다. 상위 방향이 바뀌면 하위 계획을 무효화하고 다시 검토합니다.
+- **분리된 검토:** 계획 검토자와 구현 결과 검토자가 원본 자료를 확인합니다. 결과 검토는 코드(CODE), 실행(RUN), 대상 환경(ENV)으로 범위를 나눕니다.
+- **세션을 잇는 메모리:** 현재 요약, 계획별 진행, 원본 이력을 연결합니다. coding·infra처럼 서로 다른 순차 세션도 같은 프로젝트 맥락을 읽습니다.
+- **개인 작업 공간:** 계획·메모리는 코드 레포의 `.harness/`에 두고 로컬 Git 제외 설정으로 관리합니다. 팀의 공유 `.gitignore`는 수정하지 않습니다.
 
-## 운영 방식
+검토 호출 시점은 에이전트 지침으로 안내합니다. 설치 자체가 자동 호출을 강제하는 것은 아니며, 독립 리뷰가 실제 테스트나 사용자 승인을 대신하지 않습니다.
 
-1. 사용자가 실제 작업 방식과 불편한 점을 공유한다.
-2. 에이전트는 현재 방식의 개선점과 새로운 방법론을 제안한다.
-3. 사용자와 적용 여부를 논의한다.
-4. 합의한 내용만 공통 규칙에 반영하고, 실제 작업 결과로 다시 검토한다.
+## 설치 전 준비
 
-최신이라는 이유만으로 방법론을 도입하지 않는다. 멀티에이전트 병렬 작업도 효용과 비용, 충돌 방지 방법을 검토한 뒤 적용한다.
+- macOS
+- Python 3.9 이상 (`python3 --version`으로 확인)
+- HTTPS 다운로드용 `curl`, 프로젝트 초기화용 `git`
+- 사용할 Codex 또는 Claude Code
 
-## 현재 상태
+Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 관리자 권한은 필요하지 않습니다. Linux·Windows는 초기 지원 범위에 포함하지 않습니다.
 
-문서와 Git 저장소를 초기화하는 단계다. 설치 스크립트, 자동 동기화, 원격 저장소 연결은 아직 구현하지 않았다. 계정 정보와 인증 키는 규칙 원본에 포함하지 않는다.
+## 설치하기
+
+### GitHub에서 다운로드
+
+[v0.1.0 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.0)의 설치 파일을 사용합니다.
+
+```sh
+curl --proto '=https' --proto-redir '=https' -fL \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.0/install.sh \
+  -o /tmp/workflow-harness-install.sh
+
+# 먼저 변경될 파일을 확인합니다.
+sh /tmp/workflow-harness-install.sh --version v0.1.0 --tool both --dry-run
+
+# 확인한 설정을 적용합니다.
+sh /tmp/workflow-harness-install.sh --version v0.1.0 --tool both --yes
+```
+
+`--tool`은 `codex`, `claude`, `both` 중 선택합니다. 버전별 패키지와 체크섬을 확인한 뒤 규칙·역할·CLI를 함께 설치합니다.
+
+### 현재 로컬 체크아웃에서 설치
+
+이 README와 `install.sh`가 있는 디렉토리에서 실행합니다.
+
+```sh
+sh install.sh --tool both --dry-run
+sh install.sh --tool both --yes
+```
+
+기존 개인 지침에는 관리 블록을 추가하고 검토자 등록을 연결합니다. 다른 사람이 만든 등록 파일이나 수정된 관리 항목과 충돌하면 덮어쓰지 않고 중단합니다. 변경 전 자료는 백업합니다. 자세한 충돌·복구 정책은 [설치 안내](docs/installation.md)를 참고하세요.
+
+## 설치 후 시작하기
+
+설치 상태를 확인하고 작업할 레포를 초기화합니다.
+
+```sh
+~/.local/bin/workflow-harness status
+~/.local/bin/workflow-harness init /path/to/your/repo --dry-run
+~/.local/bin/workflow-harness init /path/to/your/repo --yes
+```
+
+`/path/to/your/repo`는 실제 작업 레포 경로로 바꿉니다. 초기화하면 다음 개인 작업 공간을 만들고 로컬 `.git/info/exclude`에 등록합니다. worktree에서는 Git이 알려주는 실제 제외 파일을 사용합니다.
+
+```text
+.harness/
+  plans/                  # S/P/T 계획 원본
+  memory/
+    current.md            # 새 세션이 먼저 읽는 맥락과 재개 지점
+    progress/             # 계획 ID별 실제 진행
+    history/              # 결정·문제 해결·작업의 원본 이력
+```
+
+이 기록은 Git 커밋에 포함되지 않으며 다른 clone이나 컴퓨터에 자동으로 동기화되지 않습니다. 기존 기록은 초기화 시 보존합니다.
+
+Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 두 검토자 역할을 읽을 수 있는지 확인하세요. 첫 요청은 다음처럼 시작할 수 있습니다.
+
+> 이 레포의 지침과 .harness 메모리를 확인하고, 요구사항에 맞는 계획부터 작성해줘. 사용자 검토에 올리기 전에 계획 검토자를 호출해줘.
+
+## 업데이트와 제거
+
+자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
+
+```sh
+# v0.1.1이 게시된 이후의 예시
+~/.local/bin/workflow-harness update --version v0.1.1 --yes
+
+~/.local/bin/workflow-harness uninstall --dry-run
+~/.local/bin/workflow-harness uninstall --yes
+```
+
+업데이트는 기존 도구 선택을 유지합니다. 도구 선택을 바꾸려면 제거 후 다시 설치합니다. 제거 시 관리 설정과 연결을 복원하며 프로젝트의 `.harness/`, 설치 버전과 백업 자료는 보존합니다.
+
+기본 설치 위치는 `~/.local/share/workflow-harness`, 명령 위치는 `~/.local/bin/workflow-harness`입니다. `--root`와 `--bin-dir`로 변경할 수 있습니다. 사용자 PATH는 자동 수정하지 않습니다. 커스텀 root를 사용했다면 이후 명령에도 같은 `--root`를 전달하세요.
+
+## 규칙을 살펴보고 싶다면
+
+| 문서 | 내용 |
+| --- | --- |
+| [공통 규칙](rules/AGENTS.md) | 작업 흐름, 지침 탐색, 메모리 복원과 검토 호출 |
+| [계획 거버넌스](rules/governance/planning.md) | S/P/T, 리비전, 의존성, 무효화와 로컬 Git 관리 |
+| [메모리 작성 거버넌스](rules/governance/memory-writing.md) | 기록·갱신·요약 압축·원본 보존 |
+| [계획 검토자](agents/plan-reviewer.md) | 계획 정합성과 리비전 필수 검사 |
+| [결과 검토자](agents/implementation-reviewer.md) | CODE/RUN/ENV 검토와 실행 근거 |
+| [설치 안내](docs/installation.md) | 설치·충돌·백업·제거·릴리스 준비 |
+| [로드맵](docs/roadmap.md) | 합의한 방향과 앞으로 다룰 과제 |
+
+이 프로젝트는 실제 작업 경험으로 규칙을 다듬어 갑니다. 공통 규칙은 시스템·조직의 상위 지침을 대체하지 않으며 프로젝트별 지침과 함께 적용합니다.
