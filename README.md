@@ -11,6 +11,9 @@ Human Bottleneck은 사람의 검토와 승인을 중심에 둔 개인용 에이
 
 ## 어떻게 작업하나요?
 
+관련 코드를 조사한 뒤 요구·구현 방향·영향 범위·검사 방법·복구가 명확한 작업은 접근 설명 → 구현 → 검사 → 결과 보고의 간소 경로를 사용합니다. 별도 계획과 계획 리뷰를 만들지 않으며, 중요한 위험의 불확실성이 남으면 결과 리뷰를 받습니다. 설계 선택이나 영향 확대가 발견되면 아래 정식 경로로 전환합니다.
+
+
 ```text
 요구사항
   → 계획 작성
@@ -42,23 +45,25 @@ Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 관�
 
 ### GitHub에서 다운로드
 
-[v0.1.0 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.0)의 설치 파일을 사용합니다.
+[v0.1.1 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.1)의 설치 파일을 사용합니다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
-  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.0/install.sh \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.1/install.sh \
   -o /tmp/workflow-harness-install.sh
 
 # 먼저 변경될 파일을 확인합니다.
-sh /tmp/workflow-harness-install.sh --version v0.1.0 --tool both --dry-run
+sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --dry-run
 
 # 확인한 설정을 적용합니다.
-sh /tmp/workflow-harness-install.sh --version v0.1.0 --tool both --yes
+sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --yes
 ```
 
 `--tool`은 `codex`, `claude`, `both` 중 선택합니다. 버전별 패키지와 체크섬을 확인한 뒤 규칙·역할·CLI를 함께 설치합니다.
 
 ### 현재 로컬 체크아웃에서 설치
+
+현재 체크아웃 버전은 `v0.1.1`입니다. 로컬 소스는 아래 명령으로 설치합니다.
 
 이 README와 `install.sh`가 있는 디렉토리에서 실행합니다.
 
@@ -83,7 +88,9 @@ sh install.sh --tool both --yes
 
 ```text
 .harness/
-  plans/                  # S/P/T 계획 원본
+  plans/                  # 작업별 폴더 ([done]- 접두사로 완료 표시)
+    <작업명>/             # S/P/T; S가 있을 때만 index.md
+      history/            # 이전 계획 revision
   memory/
     current.md            # 새 세션이 먼저 읽는 맥락과 재개 지점
     progress/             # 계획 ID별 실제 진행
@@ -101,8 +108,8 @@ Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 
 자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
 
 ```sh
-# v0.1.1이 게시된 이후의 예시
-~/.local/bin/workflow-harness update --version v0.1.1 --yes
+# 다음 버전이 게시된 이후의 예시
+~/.local/bin/workflow-harness update --version v0.1.2 --yes
 
 ~/.local/bin/workflow-harness uninstall --dry-run
 ~/.local/bin/workflow-harness uninstall --yes

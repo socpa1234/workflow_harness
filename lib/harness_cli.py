@@ -17,7 +17,7 @@ import time
 import urllib.request
 
 REPO = 'socpa1234/workflow_harness'
-VERSION = 'v0.1.0'
+VERSION = 'v0.1.1'
 BEGIN = '<!-- workflow-harness:begin -->'
 END = '<!-- workflow-harness:end -->'
 PACKAGE_FILES = ['VERSION', 'README.md', 'install.sh', 'bin/workflow-harness',
@@ -95,7 +95,7 @@ def block(root):
             'Read and follow the personal workflow rules at: ' + str(root / 'current/rules/AGENTS.md') + '\n'
             'Harness root: ' + str(root / 'current') + '\n'
             'Before plan review, use plan_reviewer with original requirements and all project plans.\n'
-            'After implementation checks, use implementation_reviewer with a CODE/RUN/ENV review request.\n'
+            'Follow the workflow routing rules: formal work requires implementation_reviewer after checks; lightweight work uses conditional review. Use a CODE/RUN/ENV request when reviewing.\n'
             'Project plans and shared memory live at the Git repository root under .harness/.\n'
             + END + '\n')
 

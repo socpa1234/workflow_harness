@@ -1,9 +1,9 @@
-Human Bottleneck — Workflow Harness의 첫 macOS 릴리스입니다.
+Human Bottleneck — Workflow Harness v0.1.1 macOS 릴리스입니다.
 
-- 계획(S/P/T), 공유 작업 메모리, 독립 검토자 규칙을 같은 버전으로 설치합니다.
-- Codex / Claude Code / 둘 다 선택할 수 있습니다.
-- install, status, update, uninstall, init과 변경 미리보기·백업·복구를 제공합니다.
-- Python 3.9 이상과 curl이 필요합니다. 프로젝트 초기화에는 Git이 필요합니다.
+- 명확한 요구·구현 방향·제한된 영향·검사·복구 조건을 만족하는 작업에 간소 경로를 추가했습니다. 별도 계획과 계획 리뷰를 생략하고 위험에 따라 결과 리뷰를 수행합니다.
+- 정식 계획을 작업별 폴더로 묶고 내부 history에 이전 revision을 보존합니다. 완료 폴더는 [done]-으로 표시하고 S 계층에만 index.md를 둡니다.
+- 검토자 입력, 메모리 최소 기록, 설치 시 생성되는 전역 지침을 새 분기 기준에 맞췄습니다.
+- 기존 평면 계획은 보존하며 자동 이동하지 않습니다.
 
-설치 방법은 저장소 README를 참고하세요. 첨부 파일은 install.sh, 버전 고정 패키지, SHA256SUMS입니다.
-사용자의 실제 홈 환경 설치와 새 세션의 역할 발견 확인은 자동 임시 환경 테스트와 별개입니다.
+설치·업데이트 방법은 README를 참고하세요. 첨부 파일은 install.sh, 버전 고정 패키지, SHA256SUMS입니다.
+설치 후 새 Codex/Claude Code 세션을 시작하세요. 실제 작업의 비용 절감 효과는 아직 측정하지 않았습니다.

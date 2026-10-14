@@ -88,10 +88,11 @@ class InstallerTests(unittest.TestCase):
         import shutil
         for rel in cli.PACKAGE_FILES:
             dst=source/rel;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/rel,dst)
-        (source/'VERSION').write_text('v0.1.1\n')
-        self.runcli('update','--version','v0.1.1','--source',str(source),source=False)
+        next_version = cli.VERSION + '-test'
+        (source/'VERSION').write_text(next_version + '\n')
+        self.runcli('update','--version',next_version,'--source',str(source),source=False)
         self.assertEqual(json.loads((self.root/'manifest.json').read_text())['selected_tools'],'both')
-        self.assertTrue((self.root/'releases/v0.1.0').is_dir())
+        self.assertTrue((self.root/'releases'/cli.VERSION).is_dir())
         self.runcli('uninstall')
 
     def test_known_development_link_is_restored(self):
@@ -186,7 +187,7 @@ class InstallerTests(unittest.TestCase):
         curl.write_text('#!/usr/bin/env python3\nimport os,sys,shutil\nfrom pathlib import Path\na=sys.argv[1:]\nurl=next(x for x in a if x.startswith("https://"))\nshutil.copyfile(Path(os.environ["FIXTURE_ASSETS"])/url.rsplit("/",1)[1],a[a.index("-o")+1])\n')
         curl.chmod(0o755)
         env=dict(os.environ,PATH=str(transport)+os.pathsep+os.environ['PATH'],FIXTURE_ASSETS=str(out))
-        result=subprocess.run(['sh',str(bootstrap),'--version','v0.1.0','--tool','both','--root',str(self.root),'--bin-dir',str(self.bin),'--yes'],env=env,capture_output=True,text=True)
+        result=subprocess.run(['sh',str(bootstrap),'--version',cli.VERSION,'--tool','both','--root',str(self.root),'--bin-dir',str(self.bin),'--yes'],env=env,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         installed=self.bin/'workflow-harness'
         result=subprocess.run([str(installed),'status','--root',str(self.root)],env=env,capture_output=True,text=True)
