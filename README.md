@@ -45,25 +45,25 @@ Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 관�
 
 ### GitHub에서 다운로드
 
-[v0.1.1 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.1)의 설치 파일을 사용합니다.
+[v0.1.2 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.2)의 설치 파일을 사용합니다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
-  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.1/install.sh \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.2/install.sh \
   -o /tmp/workflow-harness-install.sh
 
 # 먼저 변경될 파일을 확인합니다.
-sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --dry-run
+sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --dry-run
 
 # 확인한 설정을 적용합니다.
-sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --yes
+sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --yes
 ```
 
 `--tool`은 `codex`, `claude`, `both` 중 선택합니다. 버전별 패키지와 체크섬을 확인한 뒤 규칙·역할·CLI를 함께 설치합니다.
 
 ### 현재 로컬 체크아웃에서 설치
 
-현재 체크아웃 버전은 `v0.1.1`입니다. 로컬 소스는 아래 명령으로 설치합니다.
+현재 체크아웃 버전은 `v0.1.2`입니다. 로컬 소스는 아래 명령으로 설치합니다.
 
 이 README와 `install.sh`가 있는 디렉토리에서 실행합니다.
 
@@ -108,7 +108,7 @@ Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 
 자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
 
 ```sh
-# 다음 버전이 게시된 이후의 예시
+# 게시된 버전으로 업데이트합니다.
 ~/.local/bin/workflow-harness update --version v0.1.2 --yes
 
 ~/.local/bin/workflow-harness uninstall --dry-run

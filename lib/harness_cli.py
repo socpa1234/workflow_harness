@@ -17,7 +17,7 @@ import time
 import urllib.request
 
 REPO = 'socpa1234/workflow_harness'
-VERSION = 'v0.1.1'
+VERSION = 'v0.1.2'
 BEGIN = '<!-- workflow-harness:begin -->'
 END = '<!-- workflow-harness:end -->'
 PACKAGE_FILES = ['VERSION', 'README.md', 'install.sh', 'bin/workflow-harness',

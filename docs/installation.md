@@ -15,14 +15,14 @@ sh install.sh --tool both --yes
 
 ## HTTPS 설치
 
-아래 명령은 GitHub Release v0.1.1의 고정 URL을 사용한다.
+아래 명령은 GitHub Release v0.1.2의 고정 URL을 사용한다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
-  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.1/install.sh \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.2/install.sh \
   -o /tmp/workflow-harness-install.sh
-sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --dry-run
-sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --yes
+sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --dry-run
+sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --yes
 ```
 
 버전별 패키지와 SHA256SUMS를 받아 검증 후 설치한다. 체크섬은 파일 일치 확인이며 동일 GitHub 출처 자체의 진위를 별도로 보증하지 않는다. 기본 CLI는 HTTPS URL만 사용한다. 별도 로컬 아카이브는 --archive와 --checksums를 함께 지정한다.
@@ -36,7 +36,7 @@ sh /tmp/workflow-harness-install.sh --version v0.1.1 --tool both --yes
 update는 기존 도구 선택을 유지한다. 도구 선택 변경은 uninstall 후 install한다. 등록 파일은 읽기 전용으로 시작하므로 RUN/ENV 검토가 필요한 명령은 주 세션에서 수행하고 원본 로그를 전달할 수 있다. 설치가 자동 검토 호출을 강제하지는 않는다.
 
 ```sh
-workflow-harness update --version v0.1.1 --yes
+workflow-harness update --version v0.1.2 --yes
 workflow-harness uninstall --dry-run
 workflow-harness uninstall --yes
 ```
