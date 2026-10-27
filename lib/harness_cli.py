@@ -558,10 +558,17 @@ def init_project(args):
     print('Workspace ready; existing plans and memory preserved.')
 
 
+class HTTPSOnlyRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not newurl.lower().startswith('https://'):
+            raise Error('Non-HTTPS redirect rejected')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def download(url, path):
     if not url.startswith('https://'):
         raise Error('Downloads require HTTPS')
-    with urllib.request.urlopen(url, timeout=45) as response:
+    with urllib.request.build_opener(HTTPSOnlyRedirect()).open(url, timeout=45) as response:
         if not response.geturl().startswith('https://'):
             raise Error('Non-HTTPS redirect rejected')
         data = response.read(25_000_001)

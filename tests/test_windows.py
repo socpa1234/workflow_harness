@@ -21,7 +21,7 @@ spec.loader.exec_module(cli)
 ORIGINAL_DESKTOP_PACKAGES = cli.desktop_packages
 
 
-class WindowsTests(unittest.TestCase):
+class WindowsFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='harness windows ')
         self.base = Path(self.tmp.name).resolve()
@@ -65,6 +65,8 @@ class WindowsTests(unittest.TestCase):
         (source/'VERSION').write_text(version+'\n', encoding='utf-8')
         return source, version
 
+
+class WindowsTests(WindowsFixture):
     def test_discovery_zero_one_two_and_explicit_missing(self):
         self.assertTrue(all(cli.discover_tools().values()))
         (self.home/'.local/bin/claude.exe').unlink()

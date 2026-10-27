@@ -16,7 +16,7 @@ cli = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cli)
 
 def build(out, allow_dirty=False):
-    version = (ROOT/'VERSION').read_text().strip()
+    version = (ROOT/'VERSION').read_text(encoding='utf-8').strip()
     cli.validate_source(ROOT, version)
     commit = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     dirty = bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain']))
@@ -31,15 +31,17 @@ def build(out, allow_dirty=False):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT/rel, target)
         (stage/'RELEASE.json').write_text(json.dumps({'version': version, 'source_commit': commit,
-                                                    'development_build': dirty}, indent=2)+'\n')
+                                                    'development_build': dirty}, indent=2)+'\n', encoding='utf-8')
         with tarfile.open(archive, 'w:gz') as tar:
             for rel in cli.PACKAGE_FILES + ['RELEASE.json']:
                 tar.add(stage/rel, arcname=rel, recursive=False)
     shutil.copy2(ROOT/'install.sh', out/'install.sh')
+    # Standalone asset only: keep tar members compatible with existing v0.1.2 updaters.
+    shutil.copy2(ROOT/'install.ps1', out/'install.ps1')
     sums = []
-    for p in [archive, out/'install.sh']:
+    for p in [archive, out/'install.sh', out/'install.ps1']:
         sums.append(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name)
-    (out/'SHA256SUMS').write_text('\n'.join(sums)+'\n')
+    (out/'SHA256SUMS').write_text('\n'.join(sums)+'\n', encoding='utf-8')
     print(str(archive))
     return archive
 
