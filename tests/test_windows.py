@@ -203,6 +203,16 @@ class WindowsTests(WindowsFixture):
         with self.assertRaises(cli.Error):
             cli.windows_launcher(self.root/'%literal%')
 
+    def test_redirected_ansi_output_is_switched_to_utf8(self):
+        buffer = io.BytesIO()
+        stream = io.TextIOWrapper(buffer, encoding='cp1252')
+        with patch.object(sys, 'stdout', stream):
+            self.runcli('status')
+            stream.flush()
+            self.assertEqual(stream.encoding, 'utf-8')
+            self.assertIn(str(self.home), buffer.getvalue().decode('utf-8'))
+        stream.detach()
+
     def test_desktop_only_msix_and_mixed_installation(self):
         for p in (self.home/'.local/bin').iterdir():
             p.unlink()

@@ -626,6 +626,11 @@ def remote_source(args, tmp):
 
 
 def main(argv=None):
+    if windows():
+        # Redirected Windows streams otherwise use the ANSI code page (e.g. cp1252).
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, 'reconfigure'):
+                stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description='Personal workflow installer (macOS/Windows, Python 3.9+)')
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('install', 'update', 'status', 'uninstall', 'init'):
