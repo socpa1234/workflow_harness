@@ -115,14 +115,17 @@ class BootstrapTests(WindowsFixture):
         instruction = self.home/'.codex/AGENTS.md'
         instruction.parent.mkdir()
         instruction.write_text('personal\n', encoding='utf-8')
+        old_source, _ = self.new_source()
+        (old_source/'VERSION').write_text(legacy.VERSION+'\n', encoding='utf-8')
+        shutil.copy2(ROOT/'tests/fixtures/v0_1_2_cli.py', old_source/'lib/harness_cli.py')
         with patch.object(cli.platform, 'system', return_value='Darwin'):
-            legacy.main(['install', '--source', str(ROOT), '--tool', 'both', '--root', str(self.root),
+            legacy.main(['install', '--source', str(old_source), '--tool', 'both', '--root', str(self.root),
                          '--bin-dir', str(self.bin), '--yes'])
-            source, version = self.new_source()
-            self.runcli('update', '--source', str(source), '--version', version)
+            self.runcli('update', '--source', str(ROOT), '--version', cli.VERSION)
             self.runcli('status')
             self.runcli('uninstall')
         self.assertEqual(instruction.read_text(encoding='utf-8'), 'personal\n')
+        self.assertTrue((self.root/'releases'/legacy.VERSION).exists())
         self.assertTrue((self.root/'releases'/cli.VERSION).exists())
 
     @unittest.skipUnless(POWERSHELL, 'requires PowerShell; native CI sets HARNESS_TEST_POWERSHELL')

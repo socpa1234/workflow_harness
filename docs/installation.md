@@ -1,10 +1,10 @@
 # 설치와 제거
 
-Python 3.9 이상이 필요하며 macOS 다운로드에는 curl, 프로젝트 init에는 Git이 필요하다. 하네스는 관리자 권한과 pip 패키지를 요구하지 않는다. 현재 소스는 macOS와 Windows 네이티브를 대상으로 한다. 게시된 v0.1.2는 macOS용이며 Windows 지원은 아직 릴리스되지 않았다. Linux·WSL은 지원 범위 밖이다.
+Python 3.9 이상이 필요하며 macOS 다운로드에는 curl, 프로젝트 init에는 Git이 필요하다. 하네스는 관리자 권한과 pip 패키지를 요구하지 않는다. v0.2.0은 macOS와 Windows 네이티브를 대상으로 한다. 이전 v0.1.2는 macOS용이다. Linux·WSL은 지원 범위 밖이다.
 
 ## Windows 네이티브
 
-PowerShell 5.1 이상에서 현재 소스 폴더의 설치기를 실행한다. Python은 PATH의 python, py -3, python3 순으로 확인하며 Microsoft Store의 미설치 실행 별칭은 건너뛴다. Python이나 앱 자체를 자동 설치·업데이트하지 않는다.
+PowerShell 5.1 이상에서 현재 소스 폴더의 설치기를 실행한다. 독립 설치기는 v0.2.0 릴리스의 install.ps1을 다운로드해 --version v0.2.0으로 실행한다(README의 HTTPS 설치 예시 참조). Python은 PATH의 python, py -3, python3 순으로 확인하며 Microsoft Store의 미설치 실행 별칭은 건너뛴다. Python이나 앱 자체를 자동 설치·업데이트하지 않는다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --dry-run
@@ -28,19 +28,19 @@ Codex에는 `CODEX_HOME` 또는 `%USERPROFILE%\.codex`, Claude에는 `CLAUDE_CON
 
 Windows에는 심볼릭 링크/junction을 만들지 않고 버전별 release 절대 경로를 참조한다. 한글·공백 경로를 지원하고 UTF-8을 사용한다. `.cmd` 실행기는 콘솔 코드 페이지를 UTF-8로 전환한다. 실행기/Python/root/bin 경로의 `%`, 따옴표, 줄바꿈은 설치 전 거부한다. 기존 reparse/junction으로 관리 경로가 우회되면 중단한다. 사용자 설정 보존·백업·실패 복구·소유 항목 충돌 검사는 macOS와 같은 코어를 사용한다.
 
-업데이트는 Windows 지원 **새 버전이 게시된 뒤** 다음 형태로 실행한다. 아래 `$version`에는 실제 게시된 태그를 지정한다. 업데이트는 기존 도구 선택·설정 경로를 유지하며, 앱이 잠시 미발견되어도 기존 관리 설정을 업데이트할 수 있다. 다른 도구를 자동 추가하지 않는다.
+업데이트는 게시된 버전을 지정해 다음처럼 실행한다. 업데이트는 기존 도구 선택·설정 경로를 유지하며, 앱이 잠시 미발견되어도 기존 관리 설정을 업데이트할 수 있다. 다른 도구를 자동 추가하지 않는다.
 
 ```powershell
-$version = Read-Host 'Windows 지원 릴리스 태그'
+$version = 'v0.2.0'
 & $harness update --version $version --dry-run
 & $harness update --version $version --yes
 & $harness uninstall --dry-run
 & $harness uninstall --yes
 ```
 
-현재 개발 소스는 VERSION이 v0.1.2로 유지되므로 기존 게시본 v0.1.2에 덮어쓰거나 같은 버전의 다른 내용으로 업데이트할 수 없다. 개발 시험은 별도 root/bin을 사용한다. 이후 릴리스에는 `install.ps1`을 독립 자산으로 추가한다. 독립 설치기는 `--version`으로 버전을 고정해 HTTPS 패키지·SHA256SUMS를 검증하고, 각 리다이렉트도 HTTPS로 제한한다. tar 파일 목록은 구 v0.1.2 macOS updater와 호환되도록 유지한다.
+macOS v0.1.2 설치는 v0.2.0으로 업데이트할 수 있다. 같은 버전의 다른 내용으로 덮어쓰는 것은 거부하며 개발 시험은 별도 root/bin을 사용한다. `install.ps1`은 독립 릴리스 자산이다. 독립 설치기는 `--version`으로 버전을 고정해 HTTPS 패키지·SHA256SUMS를 검증하고, 각 리다이렉트도 HTTPS로 제한한다. tar 파일 목록은 구 v0.1.2 macOS updater와 호환되도록 유지한다.
 
-Windows/macOS CI를 구성했으며 Windows PowerShell5.1/Python3.9, pwsh/Python3.12에서 native 실행기·실제 junction·현재 사용자 MSIX 조회를 검사한다. 이 변경 시점에는 원격 Windows CI를 아직 실행하지 않았다. Mac의 실제 pwsh 실행과 OS mock 검사는 Windows 실행 통과를 의미하지 않는다. 새 Codex/Claude Code 앱 세션에서 공통 규칙과 두 reviewer가 보이는지는 사용자 환경에서 별도 확인해야 한다.
+Windows/macOS CI를 구성했으며 Windows PowerShell5.1/Python3.9, pwsh/Python3.12에서 native 실행기·실제 junction·현재 사용자 MSIX 조회를 검사한다. 릴리스는 이 CI가 모두 성공해야 게시한다. 실제 실행 결과는 해당 태그의 Actions run에서 확인한다. Mac의 pwsh 실행과 OS mock 결과만으로 Windows 실행 통과를 판단하지 않는다. 새 Codex/Claude Code 앱 세션에서 공통 규칙과 두 reviewer가 보이는지는 사용자 환경에서 별도 확인해야 한다.
 
 ## 로컬 검증
 
@@ -57,14 +57,14 @@ sh install.sh --tool both --yes
 
 ## HTTPS 설치
 
-아래 명령은 GitHub Release v0.1.2의 고정 URL을 사용한다.
+아래 명령은 GitHub Release v0.2.0의 고정 URL을 사용한다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
-  https://github.com/socpa1234/workflow_harness/releases/download/v0.1.2/install.sh \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.2.0/install.sh \
   -o /tmp/workflow-harness-install.sh
-sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --dry-run
-sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --yes
+sh /tmp/workflow-harness-install.sh --version v0.2.0 --tool both --dry-run
+sh /tmp/workflow-harness-install.sh --version v0.2.0 --tool both --yes
 ```
 
 버전별 패키지와 SHA256SUMS를 받아 검증 후 설치한다. 체크섬은 파일 일치 확인이며 동일 GitHub 출처 자체의 진위를 별도로 보증하지 않는다. 기본 CLI는 HTTPS URL만 사용한다. 별도 로컬 아카이브는 --archive와 --checksums를 함께 지정한다.
@@ -78,7 +78,7 @@ sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --yes
 update는 기존 도구 선택을 유지한다. 도구 선택 변경은 uninstall 후 install한다. 등록 파일은 읽기 전용으로 시작하므로 RUN/ENV 검토가 필요한 명령은 주 세션에서 수행하고 원본 로그를 전달할 수 있다. 설치가 자동 검토 호출을 강제하지는 않는다.
 
 ```sh
-workflow-harness update --version v0.1.2 --yes
+workflow-harness update --version v0.2.0 --yes
 workflow-harness uninstall --dry-run
 workflow-harness uninstall --yes
 ```
