@@ -104,7 +104,7 @@ class WindowsTests(WindowsFixture):
             self.runcli('install')
             self.runcli('status')
             self.assertFalse((self.root/'current').exists())
-            self.assertTrue((self.bin/'workflow-harness.cmd').is_file())
+            self.assertTrue((self.bin/'workflow-harness.ps1').is_file())
             installed = instructions.read_text(encoding='utf-8')
             self.assertIn(str(self.root/'releases'/cli.VERSION), installed)
             self.assertNotIn('current/rules', installed)
@@ -118,12 +118,12 @@ class WindowsTests(WindowsFixture):
             self.assertEqual(data['selected_tools'], 'both')
             self.assertTrue((self.root/'releases'/cli.VERSION).is_dir())
             self.assertIn(version, instructions.read_text(encoding='utf-8'))
-            self.assertIn(version, (self.bin/'workflow-harness.cmd').read_text(encoding='utf-8'))
+            self.assertIn(version, (self.bin/'workflow-harness.ps1').read_text(encoding='utf-8'))
             self.assertTrue(all('\\' not in key for key in data['inventory']))
             self.runcli('status')
             self.runcli('uninstall')
         self.assertEqual(instructions.read_text(encoding='utf-8'), 'Original \uaddc\uce59\nPersonal addition\n')
-        self.assertFalse((self.bin/'workflow-harness.cmd').exists())
+        self.assertFalse((self.bin/'workflow-harness.ps1').exists())
 
     def test_dry_run_and_conflicts_leave_no_installation(self):
         self.runcli('install', '--dry-run')
@@ -155,7 +155,7 @@ class WindowsTests(WindowsFixture):
 
     def test_partial_update_failure_restores_previous_release_and_files(self):
         self.runcli('install')
-        before = {p: p.read_bytes() for p in [self.root/'manifest.json', self.bin/'workflow-harness.cmd', self.home/'.codex/AGENTS.md']}
+        before = {p: p.read_bytes() for p in [self.root/'manifest.json', self.bin/'workflow-harness.ps1', self.home/'.codex/AGENTS.md']}
         source, version = self.new_source()
         original = cli.put
         def fail(path, value):
@@ -185,7 +185,7 @@ class WindowsTests(WindowsFixture):
     def test_windows_default_root_bin_and_snapshot_normalization(self):
         cli.main(['install', '--source', str(ROOT), '--yes'])
         root = Path(os.environ['LOCALAPPDATA'])/'workflow-harness'
-        self.assertTrue((root/'bin/workflow-harness.cmd').exists())
+        self.assertTrue((root/'bin/workflow-harness.ps1').exists())
         cli.main(['status'])
         cli.main(['uninstall', '--yes'])
         target = self.home/'snapshot'
@@ -196,12 +196,13 @@ class WindowsTests(WindowsFixture):
     def test_launcher_quotes_literals_and_rejects_newlines(self):
         text = cli.windows_launcher(self.root/'releases/v1')
         self.assertIn('(space)!', text)
-        self.assertIn('DisableDelayedExpansion', text)
-        self.assertIn('chcp 65001', text)
+        self.assertTrue(text.startswith('\ufeff'))
+        self.assertIn('@args', text)
+        self.assertIn('exit $LASTEXITCODE', text)
         with self.assertRaises(cli.Error):
             cli.windows_launcher(Path('bad\npath'))
-        with self.assertRaises(cli.Error):
-            cli.windows_launcher(self.root/'%literal%')
+        self.assertIn('%literal%', cli.windows_launcher(self.root/'%literal%'))
+        self.assertIn("O''Brien", cli.windows_launcher(self.root/"O'Brien"))
 
     def test_redirected_ansi_output_is_switched_to_utf8(self):
         buffer = io.BytesIO()
@@ -289,18 +290,19 @@ class WindowsTests(WindowsFixture):
                     self.runcli('uninstall')
         self.assertEqual({p: p.read_bytes() for p in self.home.rglob('*') if p.is_file()}, before)
 
-    @unittest.skipUnless(os.name == 'nt', 'requires native Windows cmd.exe')
-    def test_native_installed_cmd_lifecycle_and_exit_codes(self):
+    @unittest.skipUnless(os.name == 'nt', 'requires native Windows PowerShell')
+    def test_native_powershell_lifecycle_and_exit_codes(self):
         self.runcli('install')
-        launcher = self.bin/'workflow-harness.cmd'
+        launcher = self.bin/'workflow-harness.ps1'
         env = dict(os.environ)
         env.pop('PYTHONUTF8', None)
         launcher_temp = self.base/'launcher temporary copies'
         launcher_temp.mkdir()
         env['TEMP'] = str(launcher_temp)
+        powershell = os.environ.get('HARNESS_TEST_POWERSHELL', 'powershell.exe')
         def run(*args, cwd=None):
-            # No shell command interpolation: list arguments preserve spaces/metacharacters.
-            result = subprocess.run([str(launcher), *args, '--root', str(self.root)], env=env, cwd=cwd,
+            result = subprocess.run([powershell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                                     '-File', str(launcher), *args, '--root', str(self.root)], env=env, cwd=cwd,
                                     capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(list(launcher_temp.glob('workflow-harness-*')), [], result.stderr)
             return result

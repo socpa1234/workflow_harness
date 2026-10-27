@@ -9,9 +9,9 @@ PowerShell 5.1 이상에서 현재 소스 폴더의 설치기를 실행한다. �
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --dry-run
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --yes
-$harness = "$env:LOCALAPPDATA\workflow-harness\bin\workflow-harness.cmd"
-& $harness status
-& $harness init "C:\work\my repo" --yes
+$harness = "$env:LOCALAPPDATA\workflow-harness\bin\workflow-harness.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness init "C:\work\my repo" --yes
 ```
 
 실행 정책 옵션은 해당 프로세스에만 적용하며 조직 정책을 우회하지 않는다. 기본 root는 `%LOCALAPPDATA%\workflow-harness`, bin은 root 아래 `bin`이다. `--root`와 `--bin-dir`로 바꾸면 이후 명령에도 같은 root를 전달한다. PATH를 자동 변경하지 않으며 실행기는 설치 시 사용한 Python 절대 경로를 사용하므로 Python을 옮기면 복구/재설치가 필요하다.
@@ -26,16 +26,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --codex-ap
 
 Codex에는 `CODEX_HOME` 또는 `%USERPROFILE%\.codex`, Claude에는 `CLAUDE_CONFIG_DIR` 또는 `%USERPROFILE%\.claude`의 사용자 지침과 검토자를 설치한다. 환경 변수를 따로 지정했다면 앱도 같은 설정 홈을 사용하도록 시작해야 한다. 앱 실행 파일은 탐지 근거이며, 앱 디렉토리·인증 정보·앱 업데이트 설정은 변경하지 않는다. 대상은 네이티브 Codex와 Claude Code의 로컬 Code 탭이다. 일반 Chat/Cowork, WSL·원격 세션은 대상이 아니다.
 
-Windows에는 심볼릭 링크/junction을 만들지 않고 버전별 release 절대 경로를 참조한다. 한글·공백 경로를 지원하고 UTF-8을 사용한다. `.cmd` 실행기는 콘솔 코드 페이지를 UTF-8로 전환한다. 실행기/Python/root/bin 경로의 `%`, 따옴표, 줄바꿈은 설치 전 거부한다. 기존 reparse/junction으로 관리 경로가 우회되면 중단한다. 사용자 설정 보존·백업·실패 복구·소유 항목 충돌 검사는 macOS와 같은 코어를 사용한다.
+Windows에는 심볼릭 링크/junction을 만들지 않고 버전별 release 절대 경로를 참조한다. 한글·공백 경로를 지원하고 UTF-8을 사용한다. PowerShell 실행기는 UTF-8 BOM으로 한글 경로를 읽고 인자를 직접 전달한다. 실행 정책 옵션은 매 호출 프로세스에만 적용하며 전역 정책은 변경하지 않는다. 실행기/Python/root/bin 경로의 따옴표와 줄바꿈은 설치 전 거부한다. 기존 reparse/junction으로 관리 경로가 우회되면 중단한다. 사용자 설정 보존·백업·실패 복구·소유 항목 충돌 검사는 macOS와 같은 코어를 사용한다.
 
 업데이트는 게시된 버전을 지정해 다음처럼 실행한다. 업데이트는 기존 도구 선택·설정 경로를 유지하며, 앱이 잠시 미발견되어도 기존 관리 설정을 업데이트할 수 있다. 다른 도구를 자동 추가하지 않는다.
 
 ```powershell
 $version = 'v0.2.0'
-& $harness update --version $version --dry-run
-& $harness update --version $version --yes
-& $harness uninstall --dry-run
-& $harness uninstall --yes
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness update --version $version --dry-run
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness update --version $version --yes
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness uninstall --dry-run
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $harness uninstall --yes
 ```
 
 macOS v0.1.2 설치는 v0.2.0으로 업데이트할 수 있다. 같은 버전의 다른 내용으로 덮어쓰는 것은 거부하며 개발 시험은 별도 root/bin을 사용한다. `install.ps1`은 독립 릴리스 자산이다. 독립 설치기는 `--version`으로 버전을 고정해 HTTPS 패키지·SHA256SUMS를 검증하고, 각 리다이렉트도 HTTPS로 제한한다. tar 파일 목록은 구 v0.1.2 macOS updater와 호환되도록 유지한다.

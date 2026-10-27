@@ -118,34 +118,18 @@ def runtime_root(root, version):
 
 def launcher_targets(root, bin_dir):
     if windows():
-        return [(bin_dir / 'workflow-harness.cmd', 'CLI')]
+        return [(bin_dir / 'workflow-harness.ps1', 'CLI')]
     return [(bin_dir / 'workflow-harness', 'CLI'), (root / 'current', 'CURRENT')]
 
 
 def windows_launcher(release):
-    # cmd expands percent expressions in the invocation path before this file runs.
     paths = [sys.executable, str(release / 'lib/harness_cli.py')]
-    if any(any(c in p for c in '\r\n"%') for p in paths):
-        raise Error('Unsupported launcher path (percent sign, quote or newline)')
-    python, script = paths
-    # Tail-transfer to a private copy so uninstall can remove the installed launcher.
-    # Keep user arguments outside parenthesized groups (unquoted ')' is valid in paths).
-    return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n'
-            'if /i "%~f0"=="%_WORKFLOW_HARNESS_TEMP%\\run.cmd" goto run\r\n'
-            'set "_WORKFLOW_HARNESS_ATTEMPTS=0"\r\n:prepare\r\n'
-            'set /a "_WORKFLOW_HARNESS_ATTEMPTS+=1" >nul\r\n'
-            'if %_WORKFLOW_HARNESS_ATTEMPTS% GTR 10 exit /b 1\r\n'
-            'set "_WORKFLOW_HARNESS_TEMP=%TEMP%\\workflow-harness-%RANDOM%-%RANDOM%-%RANDOM%"\r\n'
-            'mkdir "%_WORKFLOW_HARNESS_TEMP%" 2>nul\r\n'
-            'if errorlevel 1 goto prepare\r\n'
-            'copy /b "%~f0" "%_WORKFLOW_HARNESS_TEMP%\\run.cmd" >nul\r\n'
-            'if errorlevel 1 (rmdir "%_WORKFLOW_HARNESS_TEMP%" & exit /b 1)\r\n'
-            '"%_WORKFLOW_HARNESS_TEMP%\\run.cmd" %*\r\n'
-            'exit /b 1\r\n:run\r\n'
-            '"' + python + '" -X utf8 "' + script + '" %*\r\n'
-            'set "_WORKFLOW_HARNESS_EXIT=%errorlevel%"\r\n'
-            '(\r\ndel /q "%~f0"\r\nrmdir "%_WORKFLOW_HARNESS_TEMP%"\r\n'
-            'exit /b %_WORKFLOW_HARNESS_EXIT%\r\n)\r\n')
+    if any(any(c in p for c in '\r\n"') for p in paths):
+        raise Error('Unsupported launcher path (quote or newline)')
+    python, script = ["'" + p.replace("'", "''") + "'" for p in paths]
+    # Windows PowerShell 5.1 needs a BOM to read non-ASCII path literals correctly.
+    return ('\ufeff#requires -Version 5.1\r\n$ErrorActionPreference = \'Stop\'\r\n'
+            '& ' + python + ' -X utf8 ' + script + ' @args\r\nexit $LASTEXITCODE\r\n')
 
 
 def reparse_point(path):
@@ -686,8 +670,8 @@ def main(argv=None):
         existing = load_manifest(args.root)
         args.bin_dir = (args.bin_dir or (Path(existing['bin_dir']) if existing else
                         (args.root / 'bin' if windows() else Path.home() / '.local/bin'))).expanduser().absolute()
-        if windows() and any(c in str(args.bin_dir) for c in '\r\n"%'):
-            raise Error('Unsupported bin directory (percent sign, quote or newline)')
+        if windows() and any(c in str(args.bin_dir) for c in '\r\n"'):
+            raise Error('Unsupported bin directory (quote or newline)')
     if args.command in ('install', 'update'):
         if platform.system() not in ('Darwin', 'Windows'):
             raise Error('Supported platforms: macOS and native Windows (not Linux/WSL)')

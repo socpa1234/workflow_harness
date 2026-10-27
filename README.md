@@ -51,12 +51,12 @@ Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 하�
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --dry-run
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --yes
-& "$env:LOCALAPPDATA\workflow-harness\bin\workflow-harness.cmd" status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\workflow-harness\bin\workflow-harness.ps1" status
 ```
 
 CLI가 없어도 Codex·Claude 데스크톱 앱을 탐지합니다. 설치 전에 발견한 대상과 설정 경로를 표시하며, `--tool codex|claude|both`로 범위를 지정할 수 있습니다. 자동 탐지되지 않는 일반 EXE 설치는 `--codex-app "C:\path\Codex.exe"` 또는 `--claude-app "C:\path\Claude.exe"`로 지정합니다. 앱의 네이티브 Codex 또는 Claude **Code 탭의 로컬 세션**이 대상입니다.
 
-기본 설치 위치는 `%LOCALAPPDATA%\workflow-harness`, 실행기는 그 안의 `bin\workflow-harness.cmd`입니다. 새 PowerShell 프로세스에서 실행기를 호출하면 콘솔 코드 페이지를 UTF-8로 전환합니다. 새 앱 세션에서 규칙과 검토자 두 개가 로드되는지 확인하세요. 자세한 [Windows 설치·업데이트 안내](docs/installation.md#windows-네이티브)를 참고하세요.
+기본 설치 위치는 `%LOCALAPPDATA%\workflow-harness`, 실행기는 그 안의 `bin\workflow-harness.ps1`입니다. 실행기는 PowerShell에서 Python CLI에 인자를 직접 전달하며 UTF-8과 종료 코드를 유지합니다. 새 앱 세션에서 규칙과 검토자 두 개가 로드되는지 확인하세요. 자세한 [Windows 설치·업데이트 안내](docs/installation.md#windows-네이티브)를 참고하세요.
 
 ### Windows — GitHub 릴리스에서 설치
 
@@ -132,7 +132,7 @@ Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 
 
 자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
 
-아래 업데이트 예시는 macOS용입니다. Windows에서는 실행기에 `update --version v0.2.0 --yes`를 전달합니다. 도구 선택은 유지하며, Claude Code·Codex 앱 자체의 버전은 바꾸지 않습니다.
+아래 업데이트 예시는 macOS용입니다. Windows에서는 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <실행기 경로> update --version v0.2.0 --yes`로 실행합니다. 도구 선택은 유지하며, Claude Code·Codex 앱 자체의 버전은 바꾸지 않습니다.
 
 ```sh
 # 게시된 버전으로 업데이트합니다.
