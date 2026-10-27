@@ -213,6 +213,25 @@ class WindowsTests(WindowsFixture):
             self.assertIn(str(self.home), buffer.getvalue().decode('utf-8'))
         stream.detach()
 
+    def test_windows_editor_newlines_preserve_personal_additions(self):
+        self.runcli('install')
+        path = self.home/'.codex/AGENTS.md'
+        path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n') + b'Personal addition\r\n')
+        self.runcli('status')
+        source, version = self.new_source()
+        self.runcli('update', '--version', version, '--source', str(source))
+        self.runcli('uninstall')
+        self.assertEqual(path.read_bytes(), b'Personal addition\r\n')
+
+    def test_changed_managed_text_still_blocks_update_after_newline_conversion(self):
+        self.runcli('install')
+        path = self.home/'.codex/AGENTS.md'
+        changed = path.read_bytes().replace(b'\n', b'\r\n').replace(b'Harness root:', b'Changed root:')
+        path.write_bytes(changed)
+        with self.assertRaisesRegex(cli.Error, 'Managed block edited'):
+            self.runcli('uninstall')
+        self.assertEqual(path.read_bytes(), changed)
+
     def test_desktop_only_msix_and_mixed_installation(self):
         for p in (self.home/'.local/bin').iterdir():
             p.unlink()

@@ -129,7 +129,7 @@ def windows_launcher(release):
         raise Error('Unsupported launcher path (percent sign, quote or newline)')
     python, script = paths
     return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n'
-            '"' + python + '" -X utf8 "' + script + '" %* & exit /b\r\n')
+            '"' + python + '" -X utf8 "' + script + '" %* & call exit /b %%errorlevel%%\r\n')
 
 
 def reparse_point(path):
@@ -243,6 +243,15 @@ def registrations(root, tool, version=VERSION):
     return out
 
 
+def managed_chunk(text, entry):
+    # Windows editors can change only line endings when saving personal instructions.
+    chunks = {entry['block'], entry['block'].replace('\n', '\r\n')}
+    matches = [chunk for chunk in chunks if text.count(chunk) == 1]
+    if text.count(BEGIN) != 1 or text.count(END) != 1 or len(matches) != 1:
+        raise Error('Managed block edited: ' + entry['path'])
+    return matches[0]
+
+
 def managed_check(entry):
     path = Path(entry['path'])
     safe_parent(path)
@@ -251,8 +260,7 @@ def managed_check(entry):
         if actual['kind'] != 'file':
             raise Error('Managed instructions missing or replaced: ' + str(path))
         text = content(actual).decode()
-        if text.count(BEGIN) != 1 or text.count(END) != 1 or text.count(entry['block']) != 1:
-            raise Error('Managed block edited: ' + str(path))
+        managed_chunk(text, entry)
     elif actual != entry['installed']:
         raise Error('Managed file edited or missing: ' + str(path))
     return actual
@@ -417,7 +425,7 @@ def install(args, source):
             existing = content(before).decode() if before['kind'] == 'file' else ''
             chunk = block(root, version)
             if prior:
-                existing = existing.replace(prior['block'], '', 1)
+                existing = existing.replace(managed_chunk(existing, prior), '', 1)
             elif BEGIN in existing or END in existing:
                 raise Error('Existing unowned workflow block: ' + str(path))
             after = file_snap((existing + chunk).encode(), before.get('mode', 0o644))
@@ -481,7 +489,8 @@ def uninstall(args):
         path = Path(entry['path'])
         before = managed_check(entry)
         if entry['kind'] == 'block':
-            remaining = content(before).decode().replace(entry['block'], '', 1)
+            text = content(before).decode()
+            remaining = text.replace(managed_chunk(text, entry), '', 1)
             after = file_snap(remaining.encode(), before['mode'])
             if not remaining and entry['original']['kind'] == 'missing':
                 after = {'kind': 'missing'}
