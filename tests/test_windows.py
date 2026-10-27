@@ -295,14 +295,19 @@ class WindowsTests(WindowsFixture):
         launcher = self.bin/'workflow-harness.cmd'
         env = dict(os.environ)
         env.pop('PYTHONUTF8', None)
-        def run(*args):
+        def run(*args, cwd=None):
             # No shell command interpolation: list arguments preserve spaces/metacharacters.
-            return subprocess.run([str(launcher), *args, '--root', str(self.root)], env=env,
+            return subprocess.run([str(launcher), *args, '--root', str(self.root)], env=env, cwd=cwd,
                                   capture_output=True, text=True, encoding='utf-8')
         result = run('status')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('OK', result.stdout)
         self.assertEqual(run('invalid-command').returncode, 2)
+        parentheses_repo = self.base/'repo(test)'
+        subprocess.run(['git', 'init', '-q', str(parentheses_repo)], check=True)
+        result = run('init', 'repo(test)', '--yes', cwd=self.base)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((parentheses_repo/'.harness/memory/current.md').exists())
         repo = self.home/'repo \ud55c\uae00'
         subprocess.run(['git', 'init', '-q', str(repo)], check=True)
         self.assertEqual(run('init', str(repo), '--yes').returncode, 0)
