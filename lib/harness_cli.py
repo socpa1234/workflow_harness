@@ -128,11 +128,24 @@ def windows_launcher(release):
     if any(any(c in p for c in '\r\n"%') for p in paths):
         raise Error('Unsupported launcher path (percent sign, quote or newline)')
     python, script = paths
-    # Parse the whole group before Python can delete this batch during uninstall.
-    # A successful uninstall must also avoid CALL's batch-resume lookup.
+    # Tail-transfer to a private copy so uninstall can remove the installed launcher.
+    # Keep user arguments outside parenthesized groups (unquoted ')' is valid in paths).
     return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n'
-            '(\r\n"' + python + '" -X utf8 "' + script
-            + '" %*\r\nif errorlevel 1 (call exit /b %%errorlevel%%) else (exit /b 0)\r\n)\r\n')
+            'if /i "%~f0"=="%_WORKFLOW_HARNESS_TEMP%\\run.cmd" goto run\r\n'
+            'set "_WORKFLOW_HARNESS_ATTEMPTS=0"\r\n:prepare\r\n'
+            'set /a "_WORKFLOW_HARNESS_ATTEMPTS+=1" >nul\r\n'
+            'if %_WORKFLOW_HARNESS_ATTEMPTS% GTR 10 exit /b 1\r\n'
+            'set "_WORKFLOW_HARNESS_TEMP=%TEMP%\\workflow-harness-%RANDOM%-%RANDOM%-%RANDOM%"\r\n'
+            'mkdir "%_WORKFLOW_HARNESS_TEMP%" 2>nul\r\n'
+            'if errorlevel 1 goto prepare\r\n'
+            'copy /b "%~f0" "%_WORKFLOW_HARNESS_TEMP%\\run.cmd" >nul\r\n'
+            'if errorlevel 1 (rmdir "%_WORKFLOW_HARNESS_TEMP%" & exit /b 1)\r\n'
+            '"%_WORKFLOW_HARNESS_TEMP%\\run.cmd" %*\r\n'
+            'exit /b 1\r\n:run\r\n'
+            '"' + python + '" -X utf8 "' + script + '" %*\r\n'
+            'set "_WORKFLOW_HARNESS_EXIT=%errorlevel%"\r\n'
+            '(\r\ndel /q "%~f0"\r\nrmdir "%_WORKFLOW_HARNESS_TEMP%"\r\n'
+            'exit /b %_WORKFLOW_HARNESS_EXIT%\r\n)\r\n')
 
 
 def reparse_point(path):

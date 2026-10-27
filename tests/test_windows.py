@@ -295,10 +295,15 @@ class WindowsTests(WindowsFixture):
         launcher = self.bin/'workflow-harness.cmd'
         env = dict(os.environ)
         env.pop('PYTHONUTF8', None)
+        launcher_temp = self.base/'launcher temporary copies'
+        launcher_temp.mkdir()
+        env['TEMP'] = str(launcher_temp)
         def run(*args, cwd=None):
             # No shell command interpolation: list arguments preserve spaces/metacharacters.
-            return subprocess.run([str(launcher), *args, '--root', str(self.root)], env=env, cwd=cwd,
-                                  capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run([str(launcher), *args, '--root', str(self.root)], env=env, cwd=cwd,
+                                    capture_output=True, text=True, encoding='utf-8')
+            self.assertEqual(list(launcher_temp.glob('workflow-harness-*')), [], result.stderr)
+            return result
         result = run('status')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('OK', result.stdout)
