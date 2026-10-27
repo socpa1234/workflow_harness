@@ -15,6 +15,7 @@ spec = importlib.util.spec_from_file_location('cli', ROOT/'lib/harness_cli.py')
 cli = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cli)
 
+@unittest.skipIf(os.name == 'nt', 'Legacy macOS symlink suite; native Windows is covered by test_windows')
 class InstallerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='harness tests ')
@@ -27,11 +28,13 @@ class InstallerTests(unittest.TestCase):
         self.env.start()
         self.codex = patch.dict(os.environ, {'CODEX_HOME': str(self.home/'.codex')})
         self.codex.start()
+        self.claude = patch.dict(os.environ, {'CLAUDE_CONFIG_DIR': str(self.home/'.claude')})
+        self.claude.start()
         self.system = patch.object(cli.platform, 'system', return_value='Darwin')
         self.system.start()
 
     def tearDown(self):
-        self.system.stop(); self.codex.stop(); self.env.stop(); self.tmp.cleanup()
+        self.system.stop(); self.claude.stop(); self.codex.stop(); self.env.stop(); self.tmp.cleanup()
 
     def runcli(self, command, *extra, source=True):
         args = [command, '--root', str(self.root), '--yes']

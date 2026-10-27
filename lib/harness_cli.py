@@ -31,6 +31,62 @@ class Error(Exception):
     pass
 
 
+def windows():
+    return platform.system() == 'Windows'
+
+
+def config_home(tool):
+    variable = 'CODEX_HOME' if tool == 'codex' else 'CLAUDE_CONFIG_DIR'
+    return Path(os.environ.get(variable) or str(Path.home() / ('.' + tool))).expanduser().absolute()
+
+
+def discover_tools():
+    """Locate CLI entry points without running them or reading credentials."""
+    found = {}
+    for tool in ('codex', 'claude'):
+        executable = shutil.which(tool)
+        candidates = [Path(executable)] if executable else []
+        if windows():
+            candidates += [Path.home() / '.local/bin' / (tool + '.exe')]
+            if os.environ.get('APPDATA'):
+                candidates += [Path(os.environ['APPDATA']) / 'npm' / (tool + '.cmd')]
+        found[tool] = next((p.absolute() for p in candidates if p.is_file()), None)
+    return found
+
+
+def show_tools(found):
+    for tool, executable in found.items():
+        print(tool + ': ' + (str(executable) if executable else 'CLI not found')
+              + '\n  Configuration: ' + str(config_home(tool)))
+
+
+def runtime_root(root, version):
+    return root / 'releases' / version if windows() else root / 'current'
+
+
+def launcher_targets(root, bin_dir):
+    if windows():
+        return [(bin_dir / 'workflow-harness.cmd', 'CLI')]
+    return [(bin_dir / 'workflow-harness', 'CLI'), (root / 'current', 'CURRENT')]
+
+
+def windows_launcher(release):
+    # cmd expands percent expressions in the invocation path before this file runs.
+    paths = [sys.executable, str(release / 'lib/harness_cli.py')]
+    if any(any(c in p for c in '\r\n"%') for p in paths):
+        raise Error('Unsupported launcher path (percent sign, quote or newline)')
+    python, script = paths
+    return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n'
+            '"' + python + '" -X utf8 "' + script + '" %* & exit /b\r\n')
+
+
+def reparse_point(path):
+    try:
+        return bool(getattr(path.lstat(), 'st_file_attributes', 0) & 0x400)
+    except FileNotFoundError:
+        return False
+
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -38,16 +94,18 @@ def digest(data):
 def snap(path):
     if path.is_symlink():
         return {'kind': 'link', 'target': os.readlink(path)}
+    if reparse_point(path):
+        raise Error('Reparse point requires manual setup: ' + str(path))
     if path.is_file():
         return {'kind': 'file', 'data': base64.b64encode(path.read_bytes()).decode(),
-                'mode': path.stat().st_mode & 0o777}
+                'mode': 0o644 if windows() else path.stat().st_mode & 0o777}
     if path.exists():
         raise Error('Not a regular file: ' + str(path))
     return {'kind': 'missing'}
 
 
 def file_snap(data, mode=0o644):
-    return {'kind': 'file', 'data': base64.b64encode(data).decode(), 'mode': mode}
+    return {'kind': 'file', 'data': base64.b64encode(data).decode(), 'mode': 0o644 if windows() else mode}
 
 
 def content(snapshot):
@@ -66,7 +124,8 @@ def put(path, value):
             tmp.symlink_to(value['target'])
         else:
             tmp.write_bytes(content(value))
-            tmp.chmod(value['mode'])
+            if not windows():
+                tmp.chmod(value['mode'])
         os.replace(tmp, path)
     finally:
         if tmp.exists() or tmp.is_symlink():
@@ -76,38 +135,42 @@ def put(path, value):
 def safe_parent(path):
     # Do not redirect installation through a symlinked ancestor.
     for parent in path.parents:
-        if parent.is_symlink():
-            raise Error('Symlinked parent requires manual setup: ' + str(parent))
+        if parent.is_symlink() or reparse_point(parent):
+            raise Error('Linked parent requires manual setup: ' + str(parent))
 
 
 def load_manifest(root):
     p = root / 'manifest.json'
+    safe_parent(p)
+    snapshot = snap(p)
+    if snapshot['kind'] not in ('file', 'missing'):
+        raise Error('Manifest must be a regular file')
     if not p.exists():
         return None
-    data = json.loads(p.read_text())
+    data = json.loads(p.read_text(encoding='utf-8'))
     if data.get('schema_version') != 1 or data.get('install_root') != str(root):
         raise Error('Unsupported or misplaced manifest')
     return data
 
 
-def block(root):
+def block(root, version=VERSION):
+    active = runtime_root(root, version)
     return ('\n' + BEGIN + '\n'
-            'Read and follow the personal workflow rules at: ' + str(root / 'current/rules/AGENTS.md') + '\n'
-            'Harness root: ' + str(root / 'current') + '\n'
+            'Read and follow the personal workflow rules at: ' + str(active / 'rules/AGENTS.md') + '\n'
+            'Harness root: ' + str(active) + '\n'
             'Before plan review, use plan_reviewer with original requirements and all project plans.\n'
             'Follow the workflow routing rules: formal work requires implementation_reviewer after checks; lightweight work uses conditional review. Use a CODE/RUN/ENV request when reviewing.\n'
             'Project plans and shared memory live at the Git repository root under .harness/.\n'
             + END + '\n')
 
 
-def registrations(root, tool):
-    home = Path.home()
-    codex = Path(os.environ.get('CODEX_HOME', str(home / '.codex'))).expanduser().absolute()
-    claude = home / '.claude'
+def registrations(root, tool, version=VERSION):
+    codex = config_home('codex')
+    claude = config_home('claude')
     out = []
     for name in ['plan', 'implementation']:
         role = name + '-reviewer'
-        instruction = ('Harness root: ' + str(root / 'current') + '. '
+        instruction = ('Harness root: ' + str(runtime_root(root, version)) + '. '
                        'Read rules/AGENTS.md and agents/' + role + '.md from that root and follow them. '
                        'For plan review also read rules/governance/planning.md. '
                        'Read original inputs; do not modify source, plans or shared memory. '
@@ -130,6 +193,7 @@ def registrations(root, tool):
 
 def managed_check(entry):
     path = Path(entry['path'])
+    safe_parent(path)
     actual = snap(path)
     if entry['kind'] == 'block':
         if actual['kind'] != 'file':
@@ -143,14 +207,15 @@ def managed_check(entry):
 
 
 def inventory(source):
-    return {str(p.relative_to(source)): digest(p.read_bytes()) for p in sorted(source.rglob('*')) if p.is_file()}
+    return {p.relative_to(source).as_posix(): digest(p.read_bytes()) for p in sorted(source.rglob('*')) if p.is_file()}
 
 
 def verify_existing(root, manifest):
     for e in manifest['entries']:
         managed_check(e)
     release = root / 'releases' / manifest['version']
-    if release.is_symlink() or not release.is_dir() or inventory(release) != manifest['inventory']:
+    safe_parent(release)
+    if release.is_symlink() or reparse_point(release) or not release.is_dir() or inventory(release) != manifest['inventory']:
         raise Error('Installed release changed; restore it before update/uninstall')
 
 
@@ -159,9 +224,9 @@ def validate_source(source, version):
         raise Error('Use a version such as v0.1.0')
     for rel in PACKAGE_FILES:
         p = source / rel
-        if p.is_symlink() or not p.is_file():
+        if p.is_symlink() or reparse_point(p) or not p.is_file():
             raise Error('Missing or symlinked package file: ' + rel)
-    if (source / 'VERSION').read_text().strip() != version:
+    if (source / 'VERSION').read_text(encoding='utf-8').strip() != version:
         raise Error('Package VERSION does not match requested version')
 
 
@@ -196,8 +261,9 @@ def transaction(root, changes, stage=None, release=None):
     try:
         journal.mkdir(parents=True, mode=0o700)
         (journal / 'changes.json').write_text(json.dumps([
-            {'path': str(p), 'before': b, 'after': a} for p, b, a in changes], indent=2))
-        (journal / 'changes.json').chmod(0o600)
+            {'path': str(p), 'before': b, 'after': a} for p, b, a in changes], indent=2), encoding='utf-8')
+        if not windows():
+            (journal / 'changes.json').chmod(0o600)
         if stage is not None:
             if release.exists() or release.is_symlink():
                 raise Error('Release appeared during installation')
@@ -236,6 +302,20 @@ def install(args, source):
     if args.command == 'update' and old is None:
         raise Error('Not installed')
     tool = args.tool or (old['selected_tools'] if old else None)
+    if windows():
+        found = discover_tools()
+        show_tools(found)
+        if not tool:
+            selected = [t for t, executable in found.items() if executable]
+            if not selected:
+                raise Error('No supported CLI found. Install Codex/Claude Code or add its command to PATH, then retry.')
+            tool = 'both' if len(selected) == 2 else selected[0]
+        # Existing settings remain updateable if a CLI is temporarily unavailable.
+        if not old:
+            selected = ['codex', 'claude'] if tool == 'both' else [tool]
+            missing = [t for t in selected if not found[t]]
+            if missing:
+                raise Error('Selected CLI not found: ' + ', '.join(missing))
     if not tool and sys.stdin.isatty():
         tool = input('Tool [codex/claude/both]: ').strip()
     if tool not in ('codex', 'claude', 'both'):
@@ -247,7 +327,7 @@ def install(args, source):
         if str(args.bin_dir) != old['bin_dir']:
             raise Error('Bin directory differs from existing installation')
         expected_paths = {str(p) for t in (['codex', 'claude'] if tool == 'both' else [tool]) for p, _ in registrations(root, t)}
-        expected_paths.update([str(args.bin_dir / 'workflow-harness'), str(root / 'current')])
+        expected_paths.update(str(p) for p, _ in launcher_targets(root, args.bin_dir))
         if expected_paths != {e['path'] for e in old['entries']}:
             raise Error('Tool configuration paths changed (for example CODEX_HOME); restore original paths before update')
         if old['version'] == version:
@@ -258,7 +338,7 @@ def install(args, source):
             return
     release = root / 'releases' / version
     safe_parent(release)
-    if release.is_symlink():
+    if release.is_symlink() or reparse_point(release):
         raise Error('Release directory cannot be a symlink')
     changes = []
     entries = []
@@ -266,11 +346,11 @@ def install(args, source):
     targets = []
     for t in (['codex', 'claude'] if tool == 'both' else [tool]):
         if t == 'codex':
-            codex_home = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))).expanduser().absolute()
+            codex_home = config_home('codex')
             if (codex_home / 'AGENTS.override.md').exists():
                 raise Error('AGENTS.override.md shadows personal rules; resolve it before installation')
-        targets.extend(registrations(root, t))
-    targets.extend([(args.bin_dir / 'workflow-harness', 'CLI'), (root / 'current', 'CURRENT')])
+        targets.extend(registrations(root, t, version))
+    targets.extend(launcher_targets(root, args.bin_dir))
     if old and {str(p) for p, _ in targets} != set(previous):
         raise Error('Tool configuration paths changed (for example CODEX_HOME); restore original paths before update')
     for path, text in targets:
@@ -283,7 +363,7 @@ def install(args, source):
             if before['kind'] not in ('missing', 'file'):
                 raise Error('Instructions must be a regular file: ' + str(path))
             existing = content(before).decode() if before['kind'] == 'file' else ''
-            chunk = block(root)
+            chunk = block(root, version)
             if prior:
                 existing = existing.replace(prior['block'], '', 1)
             elif BEGIN in existing or END in existing:
@@ -300,9 +380,13 @@ def install(args, source):
                 if not known:
                     raise Error('Existing unowned file (preserved): ' + str(path))
             if text in ('CLI', 'CURRENT'):
-                target = root / 'current/bin/workflow-harness' if text == 'CLI' else release
-                after = {'kind': 'link', 'target': str(target)}
-                entry['kind'] = 'link'
+                if windows():
+                    after = file_snap(windows_launcher(release).encode('utf-8'))
+                    entry['kind'] = 'file'
+                else:
+                    target = root / 'current/bin/workflow-harness' if text == 'CLI' else release
+                    after = {'kind': 'link', 'target': str(target)}
+                    entry['kind'] = 'link'
             else:
                 after = file_snap(text.encode())
                 entry['kind'] = 'file'
@@ -320,7 +404,7 @@ def install(args, source):
             shutil.copy2(source / rel, dst)
         if (source / 'RELEASE.json').is_file():
             shutil.copy2(source / 'RELEASE.json', stage / 'RELEASE.json')
-        metadata = json.loads((stage / 'RELEASE.json').read_text()) if (stage / 'RELEASE.json').exists() else {}
+        metadata = json.loads((stage / 'RELEASE.json').read_text(encoding='utf-8')) if (stage / 'RELEASE.json').exists() else {}
         if metadata and (metadata.get('version') != version or not re.fullmatch(r'[a-f0-9]{40}', metadata.get('source_commit', ''))):
             raise Error('Release metadata does not match package')
         manifest = {'schema_version': 1, 'version': version, 'source_commit': metadata.get('source_commit', 'local-development'),
@@ -360,6 +444,8 @@ def uninstall(args):
 
 
 def status(args):
+    if windows():
+        show_tools(discover_tools())
     data = load_manifest(args.root)
     if not data:
         print('Not installed: ' + str(args.root))
@@ -370,7 +456,7 @@ def status(args):
 
 
 def git(repo, *parts):
-    return subprocess.check_output(['git', '-C', str(repo), *parts], text=True).strip()
+    return subprocess.check_output(['git', '-C', str(repo), *parts], text=True, encoding='utf-8').strip()
 
 
 def init_project(args):
@@ -380,14 +466,14 @@ def init_project(args):
         raise Error('Tracked .harness files; resolve manually before init')
     workspace = repo / '.harness'
     expected = ['plans', 'memory', 'memory/progress', 'memory/history']
-    if workspace.is_symlink() or (workspace.exists() and not workspace.is_dir()):
+    if workspace.is_symlink() or reparse_point(workspace) or (workspace.exists() and not workspace.is_dir()):
         raise Error('Workspace path conflict')
     for rel in expected:
         p = workspace / rel
-        if p.is_symlink() or (p.exists() and not p.is_dir()):
+        if p.is_symlink() or reparse_point(p) or (p.exists() and not p.is_dir()):
             raise Error('Workspace subpath conflict: ' + str(p))
     current = workspace / 'memory/current.md'
-    if current.is_symlink() or (current.exists() and not current.is_file()):
+    if current.is_symlink() or reparse_point(current) or (current.exists() and not current.is_file()):
         raise Error('Memory path conflict')
     exclusion = Path(git(repo, 'rev-parse', '--git-path', 'info/exclude'))
     if not exclusion.is_absolute():
@@ -413,7 +499,7 @@ def init_project(args):
     for rel in expected:
         (workspace / rel).mkdir(parents=True, exist_ok=True)
     if not current.exists():
-        current.write_text('# Current context\n\nNo work recorded yet. Read the project plans before implementation.\n')
+        current.write_text('# Current context\n\nNo work recorded yet. Read the project plans before implementation.\n', encoding='utf-8')
     result = subprocess.run(['git', '-C', str(repo), 'check-ignore', '-q', '.harness/memory/current.md'])
     if result.returncode:
         raise Error('Ignore verification failed; inspect local exclude')
@@ -471,7 +557,7 @@ def remote_source(args, tmp):
         base = 'https://github.com/' + REPO + '/releases/download/' + version + '/'
         download(base + asset, archive)
         download(base + 'SHA256SUMS', sums)
-    matches = [line.split() for line in sums.read_text().splitlines() if len(line.split()) == 2 and line.split()[1] == asset]
+    matches = [line.split() for line in sums.read_text(encoding='utf-8').splitlines() if len(line.split()) == 2 and line.split()[1] == asset]
     if len(matches) != 1 or digest(archive.read_bytes()) != matches[0][0]:
         raise Error('Checksum mismatch')
     dst = tmp / 'payload'
@@ -481,11 +567,13 @@ def remote_source(args, tmp):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Personal workflow installer (macOS, Python 3.9+)')
+    parser = argparse.ArgumentParser(description='Personal workflow installer (macOS/Windows, Python 3.9+)')
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('install', 'update', 'status', 'uninstall', 'init'):
         p = sub.add_parser(name)
-        p.add_argument('--root', type=Path, default=Path.home() / '.local/share/workflow-harness')
+        default_root = (Path(os.environ.get('LOCALAPPDATA') or str(Path.home() / 'AppData/Local')) / 'workflow-harness'
+                        if windows() else Path.home() / '.local/share/workflow-harness')
+        p.add_argument('--root', type=Path, default=default_root)
         p.add_argument('--dry-run', action='store_true')
         p.add_argument('--yes', action='store_true')
         if name in ('install', 'update'):
@@ -500,14 +588,17 @@ def main(argv=None):
     args = parser.parse_args(argv)
     args.root = args.root.expanduser().absolute()
     safe_parent(args.root)
-    if args.root.is_symlink():
+    if args.root.is_symlink() or reparse_point(args.root):
         raise Error('Install root cannot be a symlink')
     if hasattr(args, 'bin_dir'):
         existing = load_manifest(args.root)
-        args.bin_dir = (args.bin_dir or (Path(existing['bin_dir']) if existing else Path.home() / '.local/bin')).expanduser().absolute()
+        args.bin_dir = (args.bin_dir or (Path(existing['bin_dir']) if existing else
+                        (args.root / 'bin' if windows() else Path.home() / '.local/bin'))).expanduser().absolute()
+        if windows() and any(c in str(args.bin_dir) for c in '\r\n"%'):
+            raise Error('Unsupported bin directory (percent sign, quote or newline)')
     if args.command in ('install', 'update'):
-        if platform.system() != 'Darwin':
-            raise Error('Initial release supports macOS only')
+        if platform.system() not in ('Darwin', 'Windows'):
+            raise Error('Supported platforms: macOS and native Windows (not Linux/WSL)')
         if args.command == 'update' and not args.version:
             raise Error('update requires --version')
         with tempfile.TemporaryDirectory(prefix='workflow-download-') as tmp:
