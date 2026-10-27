@@ -128,8 +128,10 @@ def windows_launcher(release):
     if any(any(c in p for c in '\r\n"%') for p in paths):
         raise Error('Unsupported launcher path (percent sign, quote or newline)')
     python, script = paths
+    # A successful uninstall can delete this batch file. Avoid CALL's batch resume then.
     return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n'
-            '"' + python + '" -X utf8 "' + script + '" %* & call exit /b %%errorlevel%%\r\n')
+            '"' + python + '" -X utf8 "' + script
+            + '" %* & if errorlevel 1 (call exit /b %%errorlevel%%) else (exit /b 0)\r\n')
 
 
 def reparse_point(path):

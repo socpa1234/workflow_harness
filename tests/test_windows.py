@@ -302,7 +302,7 @@ class WindowsTests(WindowsFixture):
         result = run('status')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('OK', result.stdout)
-        self.assertNotEqual(run('invalid-command').returncode, 0)
+        self.assertEqual(run('invalid-command').returncode, 2)
         repo = self.home/'repo \ud55c\uae00'
         subprocess.run(['git', 'init', '-q', str(repo)], check=True)
         self.assertEqual(run('init', str(repo), '--yes').returncode, 0)
