@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('windows_cli', ROOT/'lib/harness_cli.py')
 cli = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cli)
+ORIGINAL_DESKTOP_PACKAGES = cli.desktop_packages
 
 
 class WindowsTests(unittest.TestCase):
@@ -32,8 +33,10 @@ class WindowsTests(unittest.TestCase):
                         patch.object(cli.platform, 'system', return_value='Windows'),
                         patch.dict(os.environ, {'HOME': str(self.home), 'USERPROFILE': str(self.home),
                             'LOCALAPPDATA': str(self.home/'AppData/Local'), 'APPDATA': str(self.home/'AppData/Roaming'),
-                            'CODEX_HOME': str(self.home/'.codex'), 'CLAUDE_CONFIG_DIR': str(self.home/'.claude')}),
-                        patch.object(cli.shutil, 'which', return_value=None)]
+                            'CODEX_HOME': str(self.home/'.codex'), 'CLAUDE_CONFIG_DIR': str(self.home/'.claude'),
+                            'CODEX_INSTALL_DIR': ''}),
+                        patch.object(cli.shutil, 'which', return_value=None),
+                        patch.object(cli, 'desktop_packages', return_value=[])]
         for p in self.patches:
             p.start()
         for tool in ('codex', 'claude'):
@@ -69,10 +72,10 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual(cli.load_manifest(self.root)['selected_tools'], 'codex')
         self.assertFalse((self.home/'.claude').exists())
         self.runcli('uninstall')
-        with self.assertRaisesRegex(cli.Error, 'Selected CLI not found'):
+        with self.assertRaisesRegex(cli.Error, 'Selected installation not found'):
             self.runcli('install', '--tool', 'both')
         (self.home/'.local/bin/codex.exe').unlink()
-        with self.assertRaisesRegex(cli.Error, 'No supported CLI'):
+        with self.assertRaisesRegex(cli.Error, 'No supported installation'):
             self.runcli('install')
         self.assertIsNone(cli.load_manifest(self.root))
 
@@ -197,6 +200,54 @@ class WindowsTests(unittest.TestCase):
             cli.windows_launcher(Path('bad\npath'))
         with self.assertRaises(cli.Error):
             cli.windows_launcher(self.root/'%literal%')
+
+    def test_desktop_only_msix_and_mixed_installation(self):
+        for p in (self.home/'.local/bin').iterdir():
+            p.unlink()
+        codex = self.home/'Apps/Codex'
+        claude = self.home/'Apps/Claude'
+        codex.mkdir(parents=True)
+        claude.mkdir(parents=True)
+        packages = [{'Name': 'OpenAI.Codex', 'InstallLocation': str(codex)},
+                    {'Name': 'Claude', 'InstallLocation': str(claude)},
+                    {'Name': 'Unknown', 'InstallLocation': str(self.home)}]
+        with patch.object(cli, 'desktop_packages', return_value=packages):
+            self.assertEqual(cli.discover_tools(), {'codex': codex, 'claude': claude})
+            self.runcli('install')
+            self.assertEqual(cli.load_manifest(self.root)['selected_tools'], 'both')
+            self.runcli('uninstall')
+            executable = self.home/'.local/bin/codex.exe'
+            executable.touch()
+            self.assertEqual(cli.discover_tools(), {'codex': executable, 'claude': claude})
+
+    def test_desktop_exe_override_missing_and_standalone_codex(self):
+        for p in (self.home/'.local/bin').iterdir():
+            p.unlink()
+        default = Path(os.environ['LOCALAPPDATA'])/'Programs/Claude/Claude.exe'
+        default.parent.mkdir(parents=True)
+        default.touch()
+        self.assertEqual(cli.discover_tools()['claude'], default)
+        explicit = self.home/'custom/Codex.exe'
+        explicit.parent.mkdir()
+        explicit.touch()
+        self.runcli('install', '--codex-app', str(explicit))
+        self.assertEqual(cli.load_manifest(self.root)['selected_tools'], 'both')
+        self.runcli('uninstall')
+        with self.assertRaisesRegex(cli.Error, 'existing EXE'):
+            self.runcli('install', '--codex-app', str(self.home/'missing.exe'))
+        with patch.dict(os.environ, {'CODEX_INSTALL_DIR': str(explicit.parent)}):
+            (explicit.parent/'codex.exe').touch()
+            self.assertIsNotNone(cli.discover_tools()['codex'])
+
+    def test_desktop_query_failure_is_distinct_from_absence(self):
+        # Exercise the real query function rather than the fixture's inventory stub.
+        query = ORIGINAL_DESKTOP_PACKAGES
+        with patch.object(cli.subprocess, 'run', side_effect=OSError('denied')):
+            output = io.StringIO()
+            from contextlib import redirect_stderr
+            with redirect_stderr(output):
+                self.assertEqual(query(), [])
+            self.assertIn('detection unavailable', output.getvalue())
 
     def test_uninstall_rejects_changed_reparse_parent_without_deleting(self):
         self.runcli('install')

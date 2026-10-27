@@ -40,23 +40,75 @@ def config_home(tool):
     return Path(os.environ.get(variable) or str(Path.home() / ('.' + tool))).expanduser().absolute()
 
 
-def discover_tools():
-    """Locate CLI entry points without running them or reading credentials."""
+def desktop_packages():
+    """Query only the current user's supported MSIX apps; never launch an app."""
+    if not windows():
+        return []
+    powershell = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    script = ("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
+              "$p=@(Get-AppxPackage -Name 'OpenAI.Codex'; Get-AppxPackage -Name 'Claude'); "
+              "ConvertTo-Json -InputObject @($p | Select-Object Name,InstallLocation) -Compress")
+    encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
+    try:
+        result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+                                capture_output=True, text=True, encoding='utf-8', timeout=20,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        if result.returncode:
+            raise Error('PowerShell package query failed')
+        data = json.loads(result.stdout.lstrip('\ufeff'))
+        if not isinstance(data, list):
+            raise Error('Unexpected package query response')
+        return data
+    except (OSError, ValueError, Error, subprocess.TimeoutExpired) as exc:
+        print('Desktop package detection unavailable (' + type(exc).__name__
+              + '). Use --codex-app/--claude-app for an EXE installation.', file=sys.stderr)
+        return []
+
+
+def discover_tools(app_paths=None):
+    """Locate CLI or desktop installations without executing them or reading credentials."""
+    app_paths = app_paths or {}
     found = {}
     for tool in ('codex', 'claude'):
         executable = shutil.which(tool)
         candidates = [Path(executable)] if executable else []
         if windows():
             candidates += [Path.home() / '.local/bin' / (tool + '.exe')]
+            if tool == 'codex':
+                if os.environ.get('CODEX_INSTALL_DIR'):
+                    candidates += [Path(os.environ['CODEX_INSTALL_DIR']) / 'codex.exe']
+                if os.environ.get('LOCALAPPDATA'):
+                    candidates += [Path(os.environ['LOCALAPPDATA']) / 'Programs/OpenAI/Codex/bin/codex.exe']
             if os.environ.get('APPDATA'):
                 candidates += [Path(os.environ['APPDATA']) / 'npm' / (tool + '.cmd')]
         found[tool] = next((p.absolute() for p in candidates if p.is_file()), None)
+    if windows():
+        for tool, explicit in app_paths.items():
+            if explicit is not None:
+                p = Path(explicit).expanduser().absolute()
+                if p.suffix.lower() != '.exe' or not p.is_file():
+                    raise Error('App path must name an existing EXE: ' + str(p))
+                found[tool] = p
+        if not all(found.values()):
+            names = {'OpenAI.Codex': 'codex', 'Claude': 'claude'}
+            for package in desktop_packages():
+                tool = names.get(package.get('Name')) if isinstance(package, dict) else None
+                location = package.get('InstallLocation') if tool else None
+                if tool and not found[tool] and isinstance(location, str) and location and Path(location).is_dir():
+                    found[tool] = Path(location).absolute()
+        local = Path(os.environ.get('LOCALAPPDATA') or str(Path.home() / 'AppData/Local'))
+        desktop = {'codex': [local/'Programs/Codex/Codex.exe', local/'Programs/OpenAI/Codex/Codex.exe'],
+                   'claude': [local/'Programs/Claude/Claude.exe', local/'AnthropicClaude/Claude.exe',
+                              *sorted((local/'AnthropicClaude').glob('app-*/claude.exe'), reverse=True)]}
+        for tool, candidates in desktop.items():
+            if not found[tool]:
+                found[tool] = next((p.absolute() for p in candidates if p.is_file()), None)
     return found
 
 
 def show_tools(found):
     for tool, executable in found.items():
-        print(tool + ': ' + (str(executable) if executable else 'CLI not found')
+        print(tool + ': ' + (str(executable) if executable else 'CLI/desktop app not found')
               + '\n  Configuration: ' + str(config_home(tool)))
 
 
@@ -303,19 +355,19 @@ def install(args, source):
         raise Error('Not installed')
     tool = args.tool or (old['selected_tools'] if old else None)
     if windows():
-        found = discover_tools()
+        found = discover_tools({'codex': args.codex_app, 'claude': args.claude_app})
         show_tools(found)
         if not tool:
             selected = [t for t, executable in found.items() if executable]
             if not selected:
-                raise Error('No supported CLI found. Install Codex/Claude Code or add its command to PATH, then retry.')
+                raise Error('No supported installation found. Install Codex/Claude Code, add its CLI to PATH, or specify --codex-app/--claude-app.')
             tool = 'both' if len(selected) == 2 else selected[0]
         # Existing settings remain updateable if a CLI is temporarily unavailable.
         if not old:
             selected = ['codex', 'claude'] if tool == 'both' else [tool]
             missing = [t for t in selected if not found[t]]
             if missing:
-                raise Error('Selected CLI not found: ' + ', '.join(missing))
+                raise Error('Selected installation not found: ' + ', '.join(missing))
     if not tool and sys.stdin.isatty():
         tool = input('Tool [codex/claude/both]: ').strip()
     if tool not in ('codex', 'claude', 'both'):
@@ -445,7 +497,7 @@ def uninstall(args):
 
 def status(args):
     if windows():
-        show_tools(discover_tools())
+        show_tools(discover_tools({'codex': args.codex_app, 'claude': args.claude_app}))
     data = load_manifest(args.root)
     if not data:
         print('Not installed: ' + str(args.root))
@@ -576,6 +628,9 @@ def main(argv=None):
         p.add_argument('--root', type=Path, default=default_root)
         p.add_argument('--dry-run', action='store_true')
         p.add_argument('--yes', action='store_true')
+        if name in ('install', 'update', 'status'):
+            p.add_argument('--codex-app', type=Path, help='Windows desktop EXE path if automatic detection misses it')
+            p.add_argument('--claude-app', type=Path, help='Windows desktop EXE path if automatic detection misses it')
         if name in ('install', 'update'):
             p.add_argument('--tool', choices=('codex', 'claude', 'both'))
             p.add_argument('--version')
