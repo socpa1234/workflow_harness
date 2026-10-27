@@ -7,7 +7,7 @@ Human Bottleneck은 사람의 검토와 승인을 중심에 둔 개인용 에이
 
 새 세션에서도 같은 규칙과 기록으로 작업을 이어가고 싶은 사람, 코드 작성 전에 계획을 보고 수정하는 사람을 위한 프로젝트입니다.
 
-> 초기 버전: macOS 지원. CLI 구현과 임시 환경 검증을 마쳤으며, 버전 태그로 GitHub Release를 배포합니다. 직접 다운로드 설치 확인은 사용자 환경에서 진행합니다. 프로젝트 표시명은 Human Bottleneck이며 저장소와 명령 이름은 현재 `workflow_harness` / `workflow-harness`를 사용합니다.
+> 게시된 v0.1.2는 macOS용입니다. 현재 소스에는 Windows 네이티브 설치를 추가했으며, Windows CI 및 실제 앱 새 세션 확인은 아직 실행하지 않았습니다. 버전 태그로 GitHub Release를 배포합니다. 프로젝트 표시명은 Human Bottleneck이며 저장소와 명령 이름은 현재 `workflow_harness` / `workflow-harness`를 사용합니다.
 
 ## 어떻게 작업하나요?
 
@@ -34,18 +34,35 @@ Human Bottleneck은 사람의 검토와 승인을 중심에 둔 개인용 에이
 
 ## 설치 전 준비
 
-- macOS
+- macOS 또는 Windows 네이티브(PowerShell 5.1 이상)
 - Python 3.9 이상 (`python3 --version`으로 확인)
-- HTTPS 다운로드용 `curl`, 프로젝트 초기화용 `git`
+- macOS HTTPS 다운로드용 `curl`, 프로젝트 초기화용 `git`
+- Windows에는 Codex 또는 Claude Code의 CLI나 데스크톱 앱이 설치되어 있어야 합니다.
 - 사용할 Codex 또는 Claude Code
 
-Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 관리자 권한은 필요하지 않습니다. Linux·Windows는 초기 지원 범위에 포함하지 않습니다.
+Python이 없으면 먼저 설치해야 합니다. 별도 pip 패키지나 하네스 설치를 위한 관리자 권한은 필요하지 않습니다. Linux·WSL은 지원 범위 밖입니다.
 
 ## 설치하기
 
+### Windows 네이티브 — 현재 소스에서 설치
+
+현재 체크아웃의 `install.ps1`이 있는 폴더에서 PowerShell로 실행합니다. 아래 실행 정책 옵션은 이 프로세스에만 적용됩니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --dry-run
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --yes
+& "$env:LOCALAPPDATA\workflow-harness\bin\workflow-harness.cmd" status
+```
+
+CLI가 없어도 Codex·Claude 데스크톱 앱을 탐지합니다. 설치 전에 발견한 대상과 설정 경로를 표시하며, `--tool codex|claude|both`로 범위를 지정할 수 있습니다. 자동 탐지되지 않는 일반 EXE 설치는 `--codex-app "C:\path\Codex.exe"` 또는 `--claude-app "C:\path\Claude.exe"`로 지정합니다. 앱의 네이티브 Codex 또는 Claude **Code 탭의 로컬 세션**이 대상입니다.
+
+기본 설치 위치는 `%LOCALAPPDATA%\workflow-harness`, 실행기는 그 안의 `bin\workflow-harness.cmd`입니다. 새 PowerShell 프로세스에서 실행기를 호출하면 콘솔 코드 페이지를 UTF-8로 전환합니다. 새 앱 세션에서 규칙과 검토자 두 개가 로드되는지 확인하세요. 자세한 [Windows 설치·업데이트 안내](docs/installation.md#windows-네이티브)를 참고하세요.
+
+Windows 설치기는 아직 릴리스되지 않았습니다. 기존 v0.1.2 설치 파일로는 Windows에 설치할 수 없습니다.
+
 ### GitHub에서 다운로드
 
-[v0.1.2 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.2)의 설치 파일을 사용합니다.
+macOS에서는 [v0.1.2 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.1.2)의 설치 파일을 사용합니다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
@@ -63,7 +80,7 @@ sh /tmp/workflow-harness-install.sh --version v0.1.2 --tool both --yes
 
 ### 현재 로컬 체크아웃에서 설치
 
-현재 체크아웃 버전은 `v0.1.2`입니다. 로컬 소스는 아래 명령으로 설치합니다.
+macOS 로컬 소스는 아래 명령으로 설치합니다. 현재 소스의 VERSION은 `v0.1.2`이며, 게시된 동일 버전과 내용이 달라 기존 v0.1.2 설치를 덮어쓰면 거부됩니다. 현재 소스를 시험할 때는 별도 `--root`와 `--bin-dir`를 사용하세요. 기존 설치 업데이트는 새 버전 릴리스 후에 진행합니다.
 
 이 README와 `install.sh`가 있는 디렉토리에서 실행합니다.
 
@@ -76,7 +93,7 @@ sh install.sh --tool both --yes
 
 ## 설치 후 시작하기
 
-설치 상태를 확인하고 작업할 레포를 초기화합니다.
+macOS에서는 다음처럼 설치 상태를 확인하고 작업할 레포를 초기화합니다. Windows에서는 위 실행기 경로에 같은 `init` 명령을 전달합니다.
 
 ```sh
 ~/.local/bin/workflow-harness status
@@ -106,6 +123,8 @@ Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 
 ## 업데이트와 제거
 
 자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
+
+아래 v0.1.2 업데이트 예시는 macOS용입니다. Windows용 새 버전이 게시되면 Windows 실행기에 `update --version <새 태그> --yes`를 전달합니다. 도구 선택은 유지하며, Claude Code·Codex 앱 자체의 버전은 바꾸지 않습니다.
 
 ```sh
 # 게시된 버전으로 업데이트합니다.

@@ -1,0 +1,45 @@
+name: Platform checks
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            python: '3.12'
+            shell: bash
+            powershell: pwsh
+          - os: windows-latest
+            python: '3.9'
+            shell: powershell
+            powershell: powershell.exe
+          - os: windows-latest
+            python: '3.12'
+            shell: pwsh
+            powershell: pwsh
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test installation and platform entry points
+        shell: ${{ matrix.shell }}
+        env:
+          HARNESS_TEST_POWERSHELL: ${{ matrix.powershell }}
+        run: python -m unittest discover -s tests -v
+      - name: Package clean source
+        shell: ${{ matrix.shell }}
+        run: python scripts/package.py
+      - name: Check whitespace
+        shell: ${{ matrix.shell }}
+        run: git diff --check

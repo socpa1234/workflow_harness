@@ -287,6 +287,34 @@ class WindowsTests(WindowsFixture):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(memory.read_text(encoding='utf-8'), 'keep')
 
+    @unittest.skipUnless(os.name == 'nt', 'requires Windows junctions')
+    def test_native_junction_cannot_redirect_uninstall(self):
+        self.runcli('install')
+        managed = self.home/'.codex'
+        outside = self.base/'external codex'
+        managed.rename(outside)
+        result = subprocess.run(['cmd.exe', '/d', '/c', 'mklink', '/J', str(managed), str(outside)],
+                                capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        try:
+            before = {p: p.read_bytes() for p in outside.rglob('*') if p.is_file()}
+            with self.assertRaises(cli.Error):
+                self.runcli('uninstall')
+            self.assertEqual({p: p.read_bytes() for p in outside.rglob('*') if p.is_file()}, before)
+        finally:
+            managed.rmdir()  # Remove the junction itself, never its target.
+            outside.rename(managed)
+
+    @unittest.skipUnless(os.name == 'nt', 'requires current-user Windows MSIX inventory')
+    def test_native_supported_package_query(self):
+        from contextlib import redirect_stderr
+        output = io.StringIO()
+        with redirect_stderr(output):
+            packages = ORIGINAL_DESKTOP_PACKAGES()
+        self.assertEqual(output.getvalue(), '')
+        self.assertIsInstance(packages, list)
+        self.assertTrue(all(p.get('Name') in ('OpenAI.Codex', 'Claude') for p in packages))
+
 
 if __name__ == '__main__':
     unittest.main()
