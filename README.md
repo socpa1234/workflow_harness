@@ -7,7 +7,7 @@ Human Bottleneck은 사람의 검토와 승인을 중심에 둔 개인용 에이
 
 새 세션에서도 같은 규칙과 기록으로 작업을 이어가고 싶은 사람, 코드 작성 전에 계획을 보고 수정하는 사람을 위한 프로젝트입니다.
 
-> v0.2.0은 macOS와 Windows 네이티브 설치를 지원합니다. Windows/macOS CI 통과 후 버전 태그로 GitHub Release를 배포합니다. 실제 앱 새 세션의 지침·역할 로딩은 사용자 환경에서 확인합니다. 프로젝트 표시명은 Human Bottleneck이며 저장소와 명령 이름은 현재 `workflow_harness` / `workflow-harness`를 사용합니다.
+> v0.2.1은 macOS와 Windows 네이티브 설치를 지원합니다. Windows/macOS CI 통과 후 버전 태그로 GitHub Release를 배포합니다. 실제 앱 새 세션의 지침·역할 로딩은 사용자 환경에서 확인합니다. 프로젝트 표시명은 Human Bottleneck이며 저장소와 명령 이름은 현재 `workflow_harness` / `workflow-harness`를 사용합니다.
 
 ## 어떻게 작업하나요?
 
@@ -61,34 +61,34 @@ CLI가 없어도 Codex·Claude 데스크톱 앱을 탐지합니다. 설치 전�
 ### Windows — GitHub 릴리스에서 설치
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/socpa1234/workflow_harness/releases/download/v0.2.0/install.ps1' -OutFile "$env:TEMP\workflow-harness-install.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\workflow-harness-install.ps1" --version v0.2.0 --dry-run
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\workflow-harness-install.ps1" --version v0.2.0 --yes
+Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/socpa1234/workflow_harness/releases/download/v0.2.1/install.ps1' -OutFile "$env:TEMP\workflow-harness-install.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\workflow-harness-install.ps1" --version v0.2.1 --dry-run
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\workflow-harness-install.ps1" --version v0.2.1 --yes
 ```
 
 기존 v0.1.2 설치 파일은 macOS용입니다. Windows에는 v0.2.0 이상을 사용하세요.
 
 ### GitHub에서 다운로드
 
-macOS에서는 [v0.2.0 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.2.0)의 설치 파일을 사용합니다.
+macOS에서는 [v0.2.1 릴리스](https://github.com/socpa1234/workflow_harness/releases/tag/v0.2.1)의 설치 파일을 사용합니다.
 
 ```sh
 curl --proto '=https' --proto-redir '=https' -fL \
-  https://github.com/socpa1234/workflow_harness/releases/download/v0.2.0/install.sh \
+  https://github.com/socpa1234/workflow_harness/releases/download/v0.2.1/install.sh \
   -o /tmp/workflow-harness-install.sh
 
 # 먼저 변경될 파일을 확인합니다.
-sh /tmp/workflow-harness-install.sh --version v0.2.0 --tool both --dry-run
+sh /tmp/workflow-harness-install.sh --version v0.2.1 --tool both --dry-run
 
 # 확인한 설정을 적용합니다.
-sh /tmp/workflow-harness-install.sh --version v0.2.0 --tool both --yes
+sh /tmp/workflow-harness-install.sh --version v0.2.1 --tool both --yes
 ```
 
 `--tool`은 `codex`, `claude`, `both` 중 선택합니다. 버전별 패키지와 체크섬을 확인한 뒤 규칙·역할·CLI를 함께 설치합니다.
 
 ### 현재 로컬 체크아웃에서 설치
 
-macOS 로컬 소스는 아래 명령으로 설치합니다. 현재 소스의 VERSION은 `v0.2.0`입니다. 수정한 개발 소스를 같은 버전으로 덮어쓰면 거부되므로 개발 시험에는 별도 `--root`와 `--bin-dir`를 사용하세요.
+macOS 로컬 소스는 아래 명령으로 설치합니다. 현재 소스의 VERSION은 `v0.2.1`입니다. 수정한 개발 소스를 같은 버전으로 덮어쓰면 거부되므로 개발 시험에는 별도 `--root`와 `--bin-dir`를 사용하세요.
 
 이 README와 `install.sh`가 있는 디렉토리에서 실행합니다.
 
@@ -132,11 +132,11 @@ Codex 또는 Claude Code를 **새 세션으로 시작**하고, 공통 지침과 
 
 자동 업데이트는 하지 않습니다. 게시된 버전을 지정해서 업데이트합니다.
 
-아래 업데이트 예시는 macOS용입니다. Windows에서는 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <실행기 경로> update --version v0.2.0 --yes`로 실행합니다. 도구 선택은 유지하며, Claude Code·Codex 앱 자체의 버전은 바꾸지 않습니다.
+아래 업데이트 예시는 macOS용입니다. Windows에서는 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <실행기 경로> update --version v0.2.1 --yes`로 실행합니다. 도구 선택은 유지하며, Claude Code·Codex 앱 자체의 버전은 바꾸지 않습니다.
 
 ```sh
 # 게시된 버전으로 업데이트합니다.
-~/.local/bin/workflow-harness update --version v0.2.0 --yes
+~/.local/bin/workflow-harness update --version v0.2.1 --yes
 
 ~/.local/bin/workflow-harness uninstall --dry-run
 ~/.local/bin/workflow-harness uninstall --yes
